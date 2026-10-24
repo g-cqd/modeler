@@ -61,11 +61,12 @@ public enum TLAModule {
         let byName = Dictionary(uniqueKeysWithValues: variables.map { ($0.name, $0) })
         let findings = ReentrancyAnalysis.findings(in: facts).filter { $0.type == type.name }
 
+        let perLock = !type.isIsolated && methods.contains { $0.effects.contains { $0.kind == .acquire } }
         var actions: [Action] = []
         var labels: [String] = []
         var methodIDs: [String: [Action]] = [:]
         for method in methods {
-            let segments = TLASegment.split(method)
+            let segments = TLASegment.split(method, perLock: perLock)
             let modelled =
                 segments.contains { !$0.writes.keys.filter(byName.keys.contains).isEmpty } || segments.count > 1
             guard modelled else { continue }
@@ -129,7 +130,7 @@ public enum TLAModule {
         for variable in variables { out.append("    /\\ \(variable.name) \\in Dom_\(variable.name)") }
         for monitor in monitors {
             let domain = byName[monitor.finding.property].map { "Dom_\($0.name)" } ?? "{}"
-            out.append("    /\\ chk_\(monitor.index) \\in [Procs -> \(domain) \\cup {\"none\"}]")
+            out.append("    /\\ chk_\(monitor.index) \\in [Procs -> {<<>>} \\cup {<<v>> : v \\in \(domain)}]")
             out.append("    /\\ stale_\(monitor.index) \\in BOOLEAN")
         }
         out.append("")
@@ -137,7 +138,7 @@ public enum TLAModule {
         out.append("    /\\ pc = [p \\in Procs |-> \"idle\"]")
         for variable in variables { out.append("    /\\ \(variable.name) = \(variable.initial)") }
         for monitor in monitors {
-            out.append("    /\\ chk_\(monitor.index) = [p \\in Procs |-> \"none\"]")
+            out.append("    /\\ chk_\(monitor.index) = [p \\in Procs |-> <<>>]")
             out.append("    /\\ stale_\(monitor.index) = FALSE")
         }
         out.append("")
@@ -211,15 +212,15 @@ public enum TLAModule {
                 $0.kind == .write && $0.line == f.writeLine && $0.subject == f.property
             }
             if isCheck {
-                body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = \(f.property)]")
+                body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = <<\(f.property)>>]")
             } else if action.isFirst {
-                body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = \"none\"]")
+                body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = <<>>]")
             } else {
                 unchanged.append("chk_\(monitor.index)")
             }
             if isWrite {
                 body.append(
-                    "/\\ stale_\(monitor.index)' = (stale_\(monitor.index) \\/ (chk_\(monitor.index)[p] # \"none\" /\\ chk_\(monitor.index)[p] # \(f.property)))"
+                    "/\\ stale_\(monitor.index)' = (stale_\(monitor.index) \\/ (chk_\(monitor.index)[p] # <<>> /\\ chk_\(monitor.index)[p] # <<\(f.property)>>))"
                 )
             } else {
                 unchanged.append("stale_\(monitor.index)")

@@ -67,14 +67,14 @@ public struct ModelFacts: Sendable {
             guard known(effect.subject) else { return nil }
         case .call:
             guard functions.contains(effect.subject) else { return nil }
-        case .suspend, .spawn:
+        case .suspend, .spawn, .acquire, .release:
             break
         }
         let guards = effect.when.filter { known($0.property) }
         guard guards.count != effect.when.count else { return effect }
         return Effect(
             kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
-            isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards)
+            isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks)
     }
 
     private static func unique(_ values: [String]) -> [String] {

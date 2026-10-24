@@ -14,8 +14,12 @@ struct TLASegment {
 
     /// Splits `method`'s effects after each `await` of its own body. Effects in closures stay in the segment
     /// that contains the closure.
+    ///
+    /// With `perLock`, which is for a type that takes locks, a segment is a whole `withLock` scope or a single
+    /// read or write outside every scope, so code outside a lock interleaves with other callers at each access.
     /// - Complexity: O(*e*) in the effects.
-    static func split(_ method: MethodFacts) -> [TLASegment] {
+    static func split(_ method: MethodFacts, perLock: Bool = false) -> [TLASegment] {
+        if perLock { return splitPerLock(method) }
         var groups: [[Effect]] = [[]]
         for effect in method.effects {
             if effect.kind == .suspend, effect.closureDepth == 0 {
@@ -26,6 +30,36 @@ struct TLASegment {
             }
         }
         return groups.map(TLASegment.init)
+    }
+
+    private static func splitPerLock(_ method: MethodFacts) -> [TLASegment] {
+        var groups: [[Effect]] = []
+        var current: [Effect] = []
+        var inScope = false
+        func flush() {
+            if !current.isEmpty { groups.append(current) }
+            current = []
+        }
+        for effect in method.effects {
+            if effect.kind == .acquire, effect.locks.isEmpty {
+                flush()
+                inScope = true
+                current = [effect]
+            } else if inScope {
+                current.append(effect)
+                if effect.kind == .release, effect.locks.isEmpty {
+                    inScope = false
+                    flush()
+                }
+            } else if effect.kind == .read || effect.kind == .write || effect.kind == .suspend {
+                flush()
+                groups.append([effect])
+            } else {
+                current.append(effect)
+            }
+        }
+        flush()
+        return (groups.isEmpty ? [[]] : groups).map(TLASegment.init)
     }
 
     private init(_ effects: [Effect]) {
@@ -47,6 +81,10 @@ struct TLASegment {
         if let first = deciding.first {
             for candidate in first.when where candidate.isFresh {
                 let property = candidate.property
+                // The check must be made in this segment: a guard from an earlier one says nothing about now.
+                guard effects.contains(where: { $0.kind == .read && $0.isCheck && $0.subject == property }) else {
+                    continue
+                }
                 let cut = deciding.firstIndex { $0.kind == .write && $0.subject == property } ?? deciding.count - 1
                 let entering = deciding[...cut].map { $0.when.first { $0.property == property && $0.isFresh } }
                 guard entering.allSatisfy({ $0 != nil }) else { continue }
