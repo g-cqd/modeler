@@ -56,7 +56,7 @@ struct CorpusOptions: ParsableArguments {
         if let cachePath { return URL(fileURLWithPath: cachePath) }
         let base =
             ProcessInfo.processInfo.environment["XDG_CACHE_HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil }
-            ?? NSHomeDirectory() + "/.cache"
+            ?? (ProcessInfo.processInfo.environment["HOME"] ?? "/tmp") + "/.cache"
         let key = RepositoryRoot.workspaceKey(from: FileManager.default.currentDirectoryPath)
         return URL(fileURLWithPath: base + "/\(ModelerTool.name)/\(key)/facts.json")
     }
