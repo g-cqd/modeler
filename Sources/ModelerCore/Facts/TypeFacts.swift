@@ -1,0 +1,58 @@
+/// One declaration of a type, or one extension of it. ``ModelFacts`` merges them by name.
+public struct TypeFacts: Codable, Sendable, Hashable {
+    public enum Kind: String, Codable, Sendable {
+        case structType = "struct"
+        case classType = "class"
+        case actorType = "actor"
+        case enumType = "enum"
+        case protocolType = "protocol"
+        case extensionType = "extension"
+    }
+
+    /// Qualified by the enclosing types: `Outer.Inner`.
+    public let name: String
+    public let kind: Kind
+    public let inherited: [String]
+    /// Attribute names without `@`, such as `MainActor`.
+    public let attributes: [String]
+    public let file: String
+    public let line: Int
+    public let properties: [PropertyFacts]
+    public let cases: [EnumCaseFacts]
+    public let methods: [MethodFacts]
+
+    public init(
+        name: String, kind: Kind, inherited: [String], attributes: [String], file: String, line: Int,
+        properties: [PropertyFacts], cases: [EnumCaseFacts], methods: [MethodFacts]
+    ) {
+        self.name = name
+        self.kind = kind
+        self.inherited = inherited
+        self.attributes = attributes
+        self.file = file
+        self.line = line
+        self.properties = properties
+        self.cases = cases
+        self.methods = methods
+    }
+
+    /// The last component of ``name``.
+    public var simpleName: String { name.split(separator: ".").last.map(String.init) ?? name }
+
+    /// Whether another task can run between two statements of one method: an actor, or a type isolated to a
+    /// global actor.
+    public var isIsolated: Bool {
+        kind == .actorType || attributes.contains { $0.hasSuffix("Actor") }
+    }
+}
+
+/// The facts of one source file; what the cache stores.
+public struct FileFacts: Codable, Sendable, Hashable {
+    public let path: String
+    public let types: [TypeFacts]
+
+    public init(path: String, types: [TypeFacts]) {
+        self.path = path
+        self.types = types
+    }
+}
