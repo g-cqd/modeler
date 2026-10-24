@@ -80,7 +80,11 @@ enum Conditions {
     }
 
     /// What one boolean expression establishes when it is true.
+    ///
+    /// A member used as a condition on its own, `if ready`, is `true`, and `if !ready` is `false`; `ready ==
+    /// true` and `== false` say the same. Their "cases" are the literals `true` and `false`.
     static func constraints(of expression: ExprSyntax, locals: Set<String>) -> Constraints {
+        if let truth = booleanMember(expression, locals: locals) { return [truth.member: [truth.value]] }
         guard let sequence = expression.as(SequenceExprSyntax.self) else { return [:] }
         let elements = Array(sequence.elements)
         let alternatives = split(elements, on: "||")
@@ -94,13 +98,30 @@ enum Conditions {
         return conjunction(elements, locals: locals)
     }
 
+    /// `member` and the truth it has when `expression` holds, for a bare member or its negation.
+    private static func booleanMember(_ expression: ExprSyntax, locals: Set<String>) -> (member: String, value: String)?
+    {
+        if let negation = expression.as(PrefixOperatorExprSyntax.self), negation.operator.text == "!",
+            let member = memberName(of: negation.expression, locals: locals), member != "self"
+        {
+            return (member, "false")
+        }
+        if let member = memberName(of: expression, locals: locals), member != "self" { return (member, "true") }
+        return nil
+    }
+
     private static func conjunction(_ elements: [ExprSyntax], locals: Set<String>) -> Constraints {
         var result: Constraints = [:]
+        for atom in split(elements, on: "&&") where atom.count == 1 {
+            if let truth = booleanMember(atom[0], locals: locals) {
+                merge([truth.member: [truth.value]], into: &result)
+            }
+        }
         for atom in split(elements, on: "&&") where atom.count == 3 {
             guard let op = atom[1].as(BinaryOperatorExprSyntax.self), op.operator.text == "==" else { continue }
-            if let member = memberName(of: atom[0], locals: locals), let name = caseLiteral(atom[2]) {
+            if let member = memberName(of: atom[0], locals: locals), let name = literalValue(atom[2]) {
                 merge([member: [name]], into: &result)
-            } else if let member = memberName(of: atom[2], locals: locals), let name = caseLiteral(atom[0]) {
+            } else if let member = memberName(of: atom[2], locals: locals), let name = literalValue(atom[0]) {
                 merge([member: [name]], into: &result)
             }
         }
