@@ -34,7 +34,7 @@ Reading the same code for a few minutes found more of the same shape. They are c
 | the rename is not followed by a flush of the directory, in the store that holds a single-use token | `AtomicFile.replace` (`SessionFile` does flush it) | ordering |
 
 Counts in ask's `Sources`, by `grep`: 9 descriptor opens, 8 continuations, 4 `rename`, 4 `flock`, 53 `while` loops, 85 `try?`,
-6 `String(decoding:)` over a `prefix` or `suffix`. In arcleak, dolly and deadwood: 15 `@unchecked Sendable` types.
+6 `String(decoding:)` over a `prefix` or `suffix`. In arcleak, dolly and deadwood: 15 `@unchecked Sendable` declarations.
 
 ## 3. One abstraction: an obligation
 
@@ -67,7 +67,7 @@ Evidence level: **L0** exact path analysis on a control-flow graph, no solver; *
 | `effect-then-fallible-commit` | after a declared irreversible effect, a fallible step must not drop its result | needs the declaration, then a path check | L0 + declared effects | `ClaudeAccess`, `CodexAccess` (confirmed) | 1 |
 | `check-then-act` | no `await` or lock gap between a check and the write that relies on it | same | L0, L2 for the trace | arcleak `SILConfirmationSession` (found by modeler) | 1, exists |
 | `continuation-once` | each continuation is resumed exactly once, cancellation included | the compiler checks it at run time, by trapping | L0, L2 | 8 sites in ask; `Job.wait` read as sound | 2 |
-| `unguarded-shared` | a mutable stored property of an `@unchecked Sendable` type is behind a lock | `@unchecked` turns the compiler's check off | L0 | 0 in ask, 15 in the tools | 2 |
+| `unguarded-shared` | a mutable stored property of an `@unchecked Sendable` type is behind a lock | `@unchecked` turns the compiler's check off | L0 | 0 in ask, 15 declarations in the tools | 2 |
 | `lock-order`, `lock-across-await` | no cycle in the lock graph; a file lock is not held over a suspension without a bound | invisible to all | L0 graph, L2 for protocols | `CredentialLock` by design | 2 |
 | `arith-trap` | no divide or modulo by a value that can be zero, no overflow, no index out of range | the compiler traps at run time | L1 | `OutputBuffer` `% keeping`, unreachable today | 3 |
 | `no-progress-loop` | each iteration changes the loop's measure, or the loop is bounded | invisible to all | L0 template, L1 | 53 loops in ask | 3 |
@@ -151,7 +151,7 @@ with `modeler check` kept as an alias for one release.
    `OutputBuffer.text` and `Compaction.clipped`, and does not flag `ConfigurationFileReader.read` or `SessionFile.rewrite`.
 2. `effect-then-fallible-commit` with declared effects; `check-then-act` moved from modeler; `continuation-once`. **Exit criterion:**
    it flags `ClaudeAccess` and `CodexAccess`, and passes `Job.wait`.
-3. `unguarded-shared`, `lock-order`. **Exit criterion:** the 15 `@unchecked Sendable` types are each explained or flagged.
+3. `unguarded-shared`, `lock-order`. **Exit criterion:** the 15 `@unchecked Sendable` declarations are each explained or flagged.
 4. `assay prove` with TLC through `modeler`, then an SMT backend for `arith-trap` and `no-progress-loop`.
 5. Lean skeletons, `spec-drift`, `secret-flow`.
 
