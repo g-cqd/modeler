@@ -1,6 +1,6 @@
-# Proposal: `oath`, a checker for obligations on every path
+# Proposal: `fcheck`, a checker for obligations on every path
 
-Status: proposal, 2026-10-24. Nothing here is built except where it says so.
+Status: phase 1 built in `g-cqd/fcheck` 0.1.0 (the control-flow graph in analyzerkit `ControlFlow`; rules `leak-on-exit`, `replace-not-durable`, `cut-then-decode`). The rest is still a proposal.
 
 ## 1. What each tool answers
 
@@ -11,7 +11,7 @@ Status: proposal, 2026-10-24. Nothing here is built except where it says so.
 | deadwood | Is this declaration reachable? | call graph |
 | dolly | Is this code a copy? | token similarity |
 | **modeler** (built) | What does the code allow? | extraction: class and state diagrams, a TLA+ skeleton for TLC, two check-then-act reports |
-| **oath** (proposed) | Does every path and every interleaving keep its obligation? | path analysis, SMT, TLC, Lean |
+| **fcheck** (proposed) | Does every path and every interleaving keep its obligation? | path analysis, SMT, TLC, Lean |
 
 `modeler` describes and explores: it never says a program is wrong, only what it can do. Nothing in the list decides whether a
 function keeps a promise on its error path, in what order it makes irreversible changes, or whether an index can trap. That is
@@ -83,11 +83,11 @@ the second is what the hand-written ask spec does at a fraction of the effort. L
 
 - **L0 needs none of them** and carries most of the value: a control-flow graph with every exit and every `await` as a branch,
   and a check that each path through it satisfies an automaton. This is exact for the paths it sees and says so.
-- **L2 (TLC)** is for what a path cannot show: interleavings. `modeler tla` already builds the model and the stale-write monitor. `oath prove`
+- **L2 (TLC)** is for what a path cannot show: interleavings. `modeler tla` already builds the model and the stale-write monitor. `fcheck prove`
   runs it on a finding and returns the counterexample trace, or "no violation up to these bounds". Apalache (symbolic, unbounded
   integers) would remove the `IntMax` bound.
 - **L1 (SMT, Z3 or cvc5)** is for arithmetic and index rules. It is an optional external binary.
-- **L3 (Lean)** is for a pure function the author annotates. `oath` writes the Lean statement skeleton from the signature and the rule
+- **L3 (Lean)** is for a pure function the author annotates. `fcheck` writes the Lean statement skeleton from the signature and the rule
   (`bounded`, `accounts`, `whole`, as in `OutputBuffer.lean`); a person writes the proof.
 - **Alloy** would suit the structural invariants of `SessionTree` (acyclic, one root, fork copies the active branch). One model
   could be written by hand; it is not worth a rule.
@@ -97,19 +97,19 @@ the second is what the hand-written ask spec does at a fraction of the effort. L
 ## 6. The surface
 
 ```
-oath analyze [PATHS...]                       default: the current directory
+fcheck analyze [PATHS...]                       default: the current directory
     --rules ID,ID | --pack durability,resources,concurrency,bounds
-    --format xcode|json|sarif    --strict    --config FILE (.oath.json)
+    --format xcode|json|sarif    --strict    --config FILE (.fcheck.json)
     --baseline FILE   --write-baseline FILE   --only FILE   --only-from FILE   --relative-to DIR
     --cache-path FILE | --no-cache   --evidence l0|l1|l2        (highest level to spend; default l0)
-oath rules                                    the catalogue: id, shape, level, severity, one line
-oath explain ID                               the obligation, the usual fix, one passing and one failing example
-oath prove FINDING                            escalate one finding to SMT or TLC; prints the witness or the bounds
-oath obligations                              built-in and project-declared triggers, requirements and discharges
+fcheck rules                                    the catalogue: id, shape, level, severity, one line
+fcheck explain ID                               the obligation, the usual fix, one passing and one failing example
+fcheck prove FINDING                            escalate one finding to SMT or TLC; prints the witness or the bounds
+fcheck obligations                              built-in and project-declared triggers, requirements and discharges
 ```
 
 The flags, exit codes (`0` clean, `1` with `--strict` on warning or error, `64` usage, `70` internal), report schema
-(`schemaVersion`, shared with `ReportSchema`), baseline fingerprints, `--only` semantics and `// @oa:accept RULE -- reason`
+(`schemaVersion`, shared with `ReportSchema`), baseline fingerprints, `--only` semantics and `// @fc:accept RULE -- reason`
 suppression (`accept:this`, `accept:next`, `disable`, `enable`) are the ones arcleak, dolly and deadwood use, so one CI step runs all four.
 
 A finding carries the rule, the obligation it breaks, the **witness path** as source lines, and its evidence level:
@@ -119,7 +119,7 @@ Sources/Session/SessionFile+Opening.swift:41:9: warning: [leak-on-exit] descript
   when SessionLock.adopt throws at line 42 (L0, exact on this path)
 ```
 
-`.oath.json` declares what the code cannot say for itself:
+`.fcheck.json` declares what the code cannot say for itself:
 
 ```json
 { "obligations": [
@@ -135,24 +135,26 @@ Sources/Session/SessionFile+Opening.swift:41:9: warning: [leak-on-exit] descript
 analyzerkit  SourceCorpus, CorpusScan, ReportSupport, ProjectModel     exist
 analyzerkit  ControlFlow   a CFG per function: exits are return, throw and every await; defer unwinding;
                            closures and Task spawns are edges with a kind; withLock scopes are regions     new
-analyzerkit  Obligations   the six shapes as automata over a CFG, with a witness path                     new
+analyzerkit  Obligations   the six shapes as automata over a CFG, with a witness path                     planned; in 0.1.0 each rule
+                                                                                                              queries the graph and the
+                                                                                                              solver directly, inside fcheck
 modeler      uses ControlFlow for segments instead of its own collector; keeps diagrams, TLA+, Lean skeleton
-oath        rules, packs, config, evidence escalation, report
+fcheck        rules, packs, config, evidence escalation, report
 ```
 
 Facts per file are cached by `CorpusScan` as for the other tools. The two tools never duplicate extraction: `modeler` explains what
-the code can do and `oath` decides whether it keeps its promises. Its `check` command becomes `oath analyze --pack concurrency`,
+the code can do and `fcheck` decides whether it keeps its promises. Its `check` command becomes `fcheck analyze --pack concurrency`,
 with `modeler check` kept as an alias for one release.
 
 ## 8. Plan
 
-1. `ControlFlow` and `Obligations` in analyzerkit; `oath analyze` with `leak-on-exit`, `replace-not-durable`, `cut-then-decode`.
+1. `ControlFlow` and `Obligations` in analyzerkit; `fcheck analyze` with `leak-on-exit`, `replace-not-durable`, `cut-then-decode`.
    **Exit criterion:** against the ask revision of 2026-10-24 it flags `SessionFile.begin`, `ProjectTrust.save`, `AtomicFile.replace`,
    `OutputBuffer.text` and `Compaction.clipped`, and does not flag `ConfigurationFileReader.read` or `SessionFile.rewrite`.
 2. `effect-then-fallible-commit` with declared effects; `check-then-act` moved from modeler; `continuation-once`. **Exit criterion:**
    it flags `ClaudeAccess` and `CodexAccess`, and passes `Job.wait`.
 3. `unguarded-shared`, `lock-order`. **Exit criterion:** the 15 `@unchecked Sendable` declarations are each explained or flagged.
-4. `oath prove` with TLC through `modeler`, then an SMT backend for `arith-trap` and `no-progress-loop`.
+4. `fcheck prove` with TLC through `modeler`, then an SMT backend for `arith-trap` and `no-progress-loop`.
 5. Lean skeletons, `spec-drift`, `secret-flow`.
 
 Each step ships with its tests, run against fixtures that fail first, and with a number: findings on ask, arcleak, dolly and
@@ -162,7 +164,7 @@ deadwood, and how many were real.
 
 - **False positives** decide whether it is used. L0 is exact on a graph, but the graph over-approximates (a `catch` that swallows,
   an `await` that never suspends). Every finding shows its witness path, and `--strict` is off by default for new rules.
-- **Declared effects are names.** A rename silently disables a rule, so `oath obligations` lists any declared name that matches
+- **Declared effects are names.** A rename silently disables a rule, so `fcheck obligations` lists any declared name that matches
   nothing in the corpus.
 - **Solvers are optional.** Without Z3 or Java the L1 and L2 rules say "not run", never "passed".
 - **What each level claims:** L0 is exact for the paths it models and says nothing about the rest; L1 holds under the stated
