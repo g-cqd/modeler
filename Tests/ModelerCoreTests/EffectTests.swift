@@ -97,3 +97,36 @@ import Testing
         #expect(method("f", of: "A", in: facts)?.effects.map(\.summary) == ["call g", "call g"])
     }
 }
+
+@Suite struct BooleanNarrowingTests {
+    private func writeGuards(_ condition: String) -> [StateGuard] {
+        let facts = modelFacts("actor A { var ready = false; var count = 0; func f() { \(condition) { count = 1 } } }")
+        return method("f", of: "A", in: facts)?.effects.last { $0.kind == .write }?.when ?? []
+    }
+
+    @Test func `a bare member in a condition is true and its negation is false`() {
+        #expect(writeGuards("if ready").map(\.cases) == [["true"]])
+        #expect(writeGuards("if !ready").map(\.cases) == [["false"]])
+        #expect(writeGuards("if ready == false").map(\.cases) == [["false"]])
+    }
+
+    @Test func `a guard that exits narrows the rest, and an and joins both`() {
+        let facts = modelFacts(
+            "actor A { var ready = false; var done = false; var n = 0; func f() { guard !done, ready else { return }; n = 1 } }"
+        )
+        let guards = method("f", of: "A", in: facts)?.effects.last { $0.kind == .write }?.when ?? []
+        #expect(Set(guards.map { "\($0.property)=\($0.cases)" }) == ["done=[\"false\"]", "ready=[\"true\"]"])
+    }
+
+    @Test func `an or of different members establishes nothing`() {
+        #expect(writeGuards("if ready || count == 0").isEmpty)
+    }
+
+    @Test func `the TLA+ precondition of a boolean check is written in TLA+ booleans`() throws {
+        let facts = modelFacts(
+            "actor A { var ready = false; func f() async { guard !ready else { return }; await g(); ready = true } }")
+        let module = try #require(TLAModule.render(type: "A", in: facts)).module
+        #expect(module.contains("/\\ ready \\in {FALSE}"))
+        #expect(module.contains("f_0_skip(p) =="))
+    }
+}

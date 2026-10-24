@@ -146,7 +146,7 @@ public enum TLAModule {
         for action in actions {
             out += actionLines(action, variables: variables, byName: byName, monitors: monitors, bounds: bounds)
             disjuncts.append("\(action.name)(p)")
-            if !action.segment.precondition.isEmpty {
+            if !renderedPreconditions(action.segment.precondition, byName: byName, bounds: bounds).isEmpty {
                 disjuncts.append("\(action.name)_skip(p)")
             }
         }
@@ -177,11 +177,11 @@ public enum TLAModule {
     private static func actionLines(
         _ action: Action, variables: [Variable], byName: [String: Variable], monitors: [Monitor], bounds: Bounds
     ) -> [String] {
-        let precondition = action.segment.precondition.filter { byName[$0.key] != nil }
+        let precondition = renderedPreconditions(action.segment.precondition, byName: byName, bounds: bounds)
         var body: [String] = ["/\\ pc[p] = \"\(action.from)\""]
         var primed: Set<String> = []
-        for (property, cases) in precondition.sorted(by: { $0.key < $1.key }) {
-            body.append("/\\ \(property) \\in {" + cases.map { "\"\($0)\"" }.joined(separator: ", ") + "}")
+        for (property, terms) in precondition.sorted(by: { $0.key < $1.key }) {
+            body.append("/\\ \(property) \\in {" + terms.joined(separator: ", ") + "}")
         }
         for (property, write) in action.segment.writes.sorted(by: { $0.key < $1.key }) {
             guard let variable = byName[property] else { continue }
@@ -229,8 +229,8 @@ public enum TLAModule {
         if !unchanged.isEmpty { body.append("/\\ UNCHANGED <<\(unchanged.joined(separator: ", "))>>") }
         var lines = ["\\* \(action.comment)", "\(action.name)(p) =="] + body.map { "    " + $0 }
         if !precondition.isEmpty {
-            let guardText = precondition.sorted { $0.key < $1.key }.map { property, cases in
-                "\(property) \\in {" + cases.map { "\"\($0)\"" }.joined(separator: ", ") + "}"
+            let guardText = precondition.sorted { $0.key < $1.key }.map { property, terms in
+                "\(property) \\in {" + terms.joined(separator: ", ") + "}"
             }.joined(separator: " /\\ ")
             lines.append("")
             lines.append("\\* The check fails: the call returns without changing state.")
@@ -245,6 +245,20 @@ public enum TLAModule {
         }
         lines.append("")
         return lines
+    }
+
+    /// The TLA+ terms each checked member may hold. A member whose checked values are not in its set is not
+    /// constrained, since the check cannot be written.
+    private static func renderedPreconditions(
+        _ precondition: [String: [String]], byName: [String: Variable], bounds: Bounds
+    ) -> [String: [String]] {
+        var rendered: [String: [String]] = [:]
+        for (property, cases) in precondition {
+            guard let variable = byName[property] else { continue }
+            let terms = cases.compactMap { variable.domain.term(for: $0, integerBound: bounds.integerMaximum) }
+            if !terms.isEmpty { rendered[property] = terms.sorted() }
+        }
+        return rendered
     }
 
     private static func configText(variables: [Variable], findings: [ReentrancyFinding], bounds: Bounds) -> String {
