@@ -27,6 +27,7 @@ final class BodyEffectCollector: SyntaxVisitor {
     private var epoch = 0
     private var known: [String: Known] = [:]
     private var closureScopes: [[String: Known]] = []
+    private var heldLocks: [String] = []
 
     init(converter: SourceLocationConverter, locals: Set<String>) {
         self.converter = converter
@@ -57,7 +58,7 @@ final class BodyEffectCollector: SyntaxVisitor {
             Effect(
                 kind: kind, line: line(of: node), subject: subject, value: value,
                 isCheck: conditionDepth > 0 && kind == .read,
-                closureDepth: closureDepth, when: guards.sorted { $0.property < $1.property }))
+                closureDepth: closureDepth, when: guards.sorted { $0.property < $1.property }, locks: heldLocks))
     }
 
     private func suspend(at node: some SyntaxProtocol, awaiting text: String) {
@@ -188,6 +189,18 @@ final class BodyEffectCollector: SyntaxVisitor {
             walkArguments(of: node)
             record(.write, node, root)
             known.removeValue(forKey: root)
+            return .skipChildren
+        }
+        if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
+            ["withLock", "withLockIfAvailable"].contains(access.declName.baseName.text)
+        {
+            // The lock's name is the member it hangs from, or the receiver's text for anything else.
+            let name = rootMember(of: base) ?? base.trimmedDescription
+            record(.acquire, node, name)
+            heldLocks.append(name)
+            walkArguments(of: node)
+            heldLocks.removeLast()
+            record(.release, node, name)
             return .skipChildren
         }
         // A bare callee is a function, not a member read.

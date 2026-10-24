@@ -11,6 +11,10 @@ public struct Effect: Codable, Sendable, Hashable {
         case suspend
         /// Starts unstructured concurrency (`Task {}`, `Task.detached {}`, `addTask {}`).
         case spawn
+        /// Enters a `withLock` scope on the member named by ``subject``; the scope ends at the matching `release`.
+        case acquire
+        /// Leaves the scope the last `acquire` opened.
+        case release
     }
 
     public let kind: Kind
@@ -26,10 +30,12 @@ public struct Effect: Codable, Sendable, Hashable {
     public let closureDepth: Int
     /// What the enclosing conditions established about enum-valued members at this point.
     public let when: [StateGuard]
+    /// The `withLock` scopes that enclose the effect, outermost first.
+    public let locks: [String]
 
     public init(
         kind: Kind, line: Int, subject: String, value: String? = nil, isCheck: Bool = false, closureDepth: Int = 0,
-        when: [StateGuard] = []
+        when: [StateGuard] = [], locks: [String] = []
     ) {
         self.kind = kind
         self.line = line
@@ -38,6 +44,7 @@ public struct Effect: Codable, Sendable, Hashable {
         self.isCheck = isCheck
         self.closureDepth = closureDepth
         self.when = when
+        self.locks = locks
     }
 }
 
