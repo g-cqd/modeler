@@ -1,10 +1,11 @@
 name: CI
 
 # The graph (lint, linux and macOS in parallel, one required gate) lives in the shared workflow; this file only
-# says what is specific to modeler.
+# says what is specific to modeler. A `v*` tag publishes the release.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
