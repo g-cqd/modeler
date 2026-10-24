@@ -105,6 +105,25 @@ import Testing
         #expect(safe.contains("Model checking completed. No error has been found."))
     }
 
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["TLA2TOOLS"] != nil))
+    func `TLC finds the unlocked check-then-write and accepts the locked one`() throws {
+        let jar = try #require(ProcessInfo.processInfo.environment["TLA2TOOLS"])
+        func source(_ body: String) -> String {
+            """
+            final class Cache: @unchecked Sendable {
+                var ready = false
+                let lock = NSLock()
+                func go() { \(body) }
+                func reset() { lock.withLock { ready = false } }
+            }
+            """
+        }
+        let racy = try tlc(model(source("if !ready { ready = true }"), type: "Cache"), jar: jar)
+        #expect(racy.contains("Invariant NoStaleWrite_1 is violated"))
+        let locked = try tlc(model(source("lock.withLock { if !ready { ready = true } }"), type: "Cache"), jar: jar)
+        #expect(locked.contains("Model checking completed. No error has been found."))
+    }
+
     private func tlc(_ model: TLAModel, jar: String) throws -> String {
         let directory = FileManager.default.temporaryDirectory.appending(path: "modeler-tlc-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

@@ -8,7 +8,7 @@ members, and what each method body does to them, and writes:
 | `modeler classes [--type T --depth N]` | a Mermaid class diagram: types, members, conformance, inheritance, ownership |
 | `modeler states [--type T] [--output dir]` | a Mermaid state diagram for each enum-valued member the code assigns, and for each enum that assigns itself; a transition guarded before an `await` is marked `stale` |
 | `modeler tla --type T [--output dir]` | a TLA+ module and TLC configuration for one type: one action per segment between `await`s, run by `Procs` callers |
-| `modeler check [--strict]` | actor methods that check a member, `await`, then write it without checking again |
+| `modeler check [--strict]` | a check of a member, then an `await` (actors) or a gap between `withLock` scopes (types that take locks), then a write of it with no new check |
 | `modeler facts` | everything above as JSON (`schemaVersion` 1, sorted keys) |
 
 ```sh
@@ -32,8 +32,10 @@ An over-approximation, so TLC can show a trace the code can follow and cannot pr
 - Control flow, arguments, other types, and effects inside closures (attributed to the enclosing segment) are not
   modelled. A write of a computed value may produce any member of the set.
 
-A class or struct has no suspension point, so each of its methods is one atomic action. That is wrong for code that
-takes locks piecewise; extend the model by hand.
+A class or struct that takes no lock has no interleaving point, so each of its methods is one atomic action. One that
+calls `withLock` is modelled per access: a `withLock` scope is one step, and each read or write outside a scope is
+its own step, so an unlocked check then write can interleave with another caller and `check` reports it as a
+`lock-gap`.
 
 ## Limits
 
