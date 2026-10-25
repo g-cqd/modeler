@@ -144,6 +144,50 @@ final class DeclarationExtractor: SyntaxVisitor {
                     initialCase: initializer.flatMap(Conditions.caseLiteral),
                     initialLiteral: initializer.flatMap(Self.literalText)))
         }
+
+        for binding in node.bindings {
+            guard let name = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
+                let block = binding.accessorBlock, case .accessors(let accessors) = block.accessors
+            else { continue }
+            for accessor in accessors where ["set", "_modify"].contains(accessor.accessorSpecifier.text) {
+                guard let body = accessor.body else { continue }
+                var localNames = LocalBindings.collect(parameters: nil, body: body)
+                let paramName = accessor.parameters?.name.text ?? "newValue"
+                localNames.insert(paramName)
+                let effects = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
+                scopes[scopes.count - 1].methods.append(
+                    MethodFacts(
+                        signature: "\(name).set", name: "\(name)_set", file: path,
+                        line: converter.location(for: accessor.positionAfterSkippingLeadingTrivia).line,
+                        isAsync: false, isThrowing: false,
+                        isStatic: modifiers.contains("static") || modifiers.contains("class"),
+                        isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
+                        attributes: Self.attributeNames(node.attributes), effects: effects))
+            }
+        }
+        return .skipChildren
+    }
+
+    override func visit(_ node: SubscriptDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !scopes.isEmpty else { return .skipChildren }
+        let modifiers = Set(node.modifiers.map { $0.name.text })
+        if let block = node.accessorBlock, case .accessors(let accessors) = block.accessors {
+            for accessor in accessors where ["set", "_modify"].contains(accessor.accessorSpecifier.text) {
+                guard let body = accessor.body else { continue }
+                var localNames = LocalBindings.collect(parameters: node.parameterClause, body: body)
+                let paramName = accessor.parameters?.name.text ?? "newValue"
+                localNames.insert(paramName)
+                let effects = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
+                scopes[scopes.count - 1].methods.append(
+                    MethodFacts(
+                        signature: "subscript.set", name: "subscript_set", file: path,
+                        line: converter.location(for: accessor.positionAfterSkippingLeadingTrivia).line,
+                        isAsync: false, isThrowing: false,
+                        isStatic: modifiers.contains("static") || modifiers.contains("class"),
+                        isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
+                        attributes: Self.attributeNames(node.attributes), effects: effects))
+            }
+        }
         return .skipChildren
     }
 

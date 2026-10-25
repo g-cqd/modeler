@@ -61,4 +61,26 @@ import Testing
         let facts = modelFacts("enum P { case a }\nstruct S { var p: P = .a; var n = 1; func f() { _ = p } }")
         #expect(StateMachines.extract(from: facts).isEmpty)
     }
+
+    @Test func `assignments through subscripts produce state machine transitions`() throws {
+        let source = """
+            enum Phase { case idle, running, done }
+
+            struct Machine {
+                var phase: Phase = .idle
+                var items: [Item] = []
+
+                struct Item { var phase: Phase = .idle }
+
+                mutating func start() { phase = .running }
+                mutating func finish() { phase = .done }
+                mutating func advanceItem(_ i: Int) { items[i].phase = .running }
+                mutating func viaSelf() { self.items[0].phase = .done }
+            }
+            """
+        let machines = StateMachines.extract(from: modelFacts(source))
+        let item = try #require(machines.first { $0.owner.contains("Item") })
+        #expect(item.property == "phase")
+        #expect(item.transitions.map(\.to).sorted() == ["done", "running"])
+    }
 }
