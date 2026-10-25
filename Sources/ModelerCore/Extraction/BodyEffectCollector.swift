@@ -230,6 +230,13 @@ final class BodyEffectCollector: SyntaxVisitor {
         if !isPlainAssignment { record(.read, target, root) }
         let value = elements.count == 3 && isPlainAssignment ? Conditions.literalValue(elements[2]) : nil
         record(.write, target, root, value: value)
+        if let access = target.as(MemberAccessExprSyntax.self) {
+            let leaf = access.declName.baseName.text
+            if leaf != root {
+                // Record the nested write with the root collection/member as context: "root.leaf"
+                record(.write, target, "\(root).\(leaf)", value: value)
+            }
+        }
         if elements.count == 3, isPlainAssignment, let name = Conditions.caseLiteral(elements[2]) {
             known[root] = Known(cases: [name], epoch: epoch)
         } else {

@@ -61,7 +61,11 @@ public struct ModelFacts: Sendable {
 
     private static func resolve(_ effect: Effect, members: Set<String>, functions: Set<String>, isEnum: Bool) -> Effect?
     {
-        func known(_ name: String) -> Bool { members.contains(name) || (isEnum && name == "self") }
+        func known(_ name: String) -> Bool {
+            if members.contains(name) || (isEnum && name == "self") { return true }
+            if let dot = name.firstIndex(of: "."), members.contains(String(name[..<dot])) { return true }
+            return false
+        }
         switch effect.kind {
         case .read, .write:
             guard known(effect.subject) else { return nil }
