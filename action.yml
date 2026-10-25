@@ -1,0 +1,79 @@
+name: "modeler"
+description: "Models Swift code for review and model checking: class and state diagrams, TLA+ skeletons, reentrancy checks."
+branding:
+  icon: "cpu"
+  color: "purple"
+
+inputs:
+  paths:
+    description: "Files or directories to read (whitespace-separated)"
+    required: false
+    default: "Sources"
+  strict:
+    description: "Fail when reentrancy check findings are reported"
+    required: false
+    default: "false"
+  version:
+    description: "Release to download. Defaults to the ref this action was used at."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve modeler binary
+      id: resolve
+      shell: bash
+      env:
+        REQUESTED_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_PATH: ${{ github.action_path }}
+        RUNNER_OS_NAME: ${{ runner.os }}
+        RUNNER_ARCH_NAME: ${{ runner.arch }}
+      run: |
+        set -euo pipefail
+        VERSION="${REQUESTED_VERSION:-${ACTION_REF#v}}"
+        case "${RUNNER_OS_NAME}-${RUNNER_ARCH_NAME}" in
+          macOS-ARM64) SLUG="macos-arm64" ;;
+          Linux-X64)   SLUG="linux-x86_64" ;;
+          *)           SLUG="" ;;
+        esac
+
+        if [ -n "$SLUG" ] && [ -n "$VERSION" ]; then
+          NAME="modeler-${VERSION}-${SLUG}"
+          BASE="https://github.com/g-cqd/modeler/releases/download/v${VERSION}"
+          if curl -fsSL --retry 3 -o "$NAME.tar.gz" "$BASE/$NAME.tar.gz" \
+            && curl -fsSL --retry 3 -o "$NAME.tar.gz.sha256" "$BASE/$NAME.tar.gz.sha256"; then
+            if command -v shasum >/dev/null; then
+              shasum -a 256 -c "$NAME.tar.gz.sha256"
+            else
+              sha256sum -c "$NAME.tar.gz.sha256"
+            fi
+            tar -xzf "$NAME.tar.gz"
+            ACTUAL="$("$PWD/$NAME/modeler" --version 2>/dev/null || true)"
+            if [ "$ACTUAL" != "$VERSION" ]; then
+              echo "::error::modeler binary reports '$ACTUAL' but v$VERSION was requested"
+              exit 1
+            fi
+            echo "bin=$PWD/$NAME/modeler" >> "$GITHUB_OUTPUT"
+            rm -f "$NAME.tar.gz" "$NAME.tar.gz.sha256"
+            exit 0
+          fi
+          echo "::warning::no release asset for $NAME; falling back to a source build"
+        fi
+
+        swift build -c release --package-path "$ACTION_PATH"
+        echo "bin=$(swift build -c release --package-path "$ACTION_PATH" --show-bin-path)/modeler" >> "$GITHUB_OUTPUT"
+
+    - name: Check
+      shell: bash
+      env:
+        BIN: ${{ steps.resolve.outputs.bin }}
+        PATHS: ${{ inputs.paths }}
+        STRICT: ${{ inputs.strict }}
+      run: |
+        set -euo pipefail
+        args=()
+        [ "$STRICT" = "true" ] && args+=(--strict)
+        read -r -d '' -a path_args <<< "$PATHS" || true
+        "$BIN" check "${path_args[@]}" "${args[@]}"

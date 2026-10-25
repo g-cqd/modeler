@@ -145,4 +145,29 @@ import Testing
         process.waitUntilExit()
         return String(decoding: output, as: UTF8.self)
     }
+
+    @Test func `subscript and computed-property setters produce actions in TLA model`() throws {
+        let source = """
+            struct Tape {
+                private(set) var committed: [Int] = []
+                var tail: [Int] = []
+
+                subscript(index: Int) -> Int {
+                    get { index < committed.count ? committed[index] : tail[index - committed.count] }
+                    set { if index < committed.count { committed[index] = newValue } else { tail[index - committed.count] = newValue } }
+                }
+
+                var last: Int? {
+                    get { tail.last }
+                    set { if let newValue { tail.append(newValue) } }
+                }
+
+                mutating func push(_ v: Int) { tail.append(v) }
+            }
+            """
+        let m = try model(source, type: "Tape").module
+        #expect(m.contains("push_0(p) =="))
+        #expect(m.contains("subscript_set_0(p) =="))
+        #expect(m.contains("last_set_0(p) =="))
+    }
 }

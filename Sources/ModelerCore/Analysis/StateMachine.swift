@@ -60,13 +60,13 @@ public enum StateMachines {
                     stateType.kind == .enumType
                 else { continue }
                 if let machine = machine(
-                    of: type, property: property.name, initial: property.initialCase, stateType: stateType)
+                    of: type, property: property.name, initial: property.initialCase, stateType: stateType, in: facts)
                 {
                     machines.append(machine)
                 }
             }
             if type.kind == .enumType,
-                let machine = machine(of: type, property: "self", initial: nil, stateType: type)
+                let machine = machine(of: type, property: "self", initial: nil, stateType: type, in: facts)
             {
                 machines.append(machine)
             }
@@ -75,14 +75,26 @@ public enum StateMachines {
     }
 
     private static func machine(
-        of owner: TypeFacts, property: String, initial: String?, stateType: TypeFacts
+        of owner: TypeFacts, property: String, initial: String?, stateType: TypeFacts, in facts: ModelFacts
     ) -> StateMachine? {
         var transitions: [StateMachine.Transition] = []
         var seen: Set<StateMachine.Transition> = []
         var opaque = 0
+        let ownerSimple = owner.name.split(separator: ".").last.map(String.init) ?? owner.name
+        let isRelated: (TypeFacts) -> Bool = { type in
+            type.name == owner.name
+                || type.name.hasPrefix(owner.name + ".")
+                || owner.name.hasPrefix(type.name + ".")
+                || type.properties.contains { $0.typeText?.contains(ownerSimple) == true }
+        }
+        let candidateMethods = facts.types.filter(isRelated).flatMap(\.methods)
         // An initializer chooses the first state; it is not a transition out of one.
-        for method in owner.methods where method.name != "init" {
-            for effect in method.effects where effect.kind == .write && effect.subject == property {
+        for method in candidateMethods where method.name != "init" {
+            let isDirect = owner.methods.contains { $0.signature == method.signature }
+            for effect in method.effects where effect.kind == .write {
+                let matchesDirect = isDirect && effect.subject == property
+                let matchesNested = !isDirect && effect.subject.hasSuffix(".\(property)")
+                guard matchesDirect || matchesNested else { continue }
                 guard let target = effect.value, stateType.cases.contains(where: { $0.name == target }) else {
                     opaque += 1
                     continue
