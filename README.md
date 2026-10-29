@@ -11,6 +11,9 @@ members, and what each method body does to them, and writes:
 | `modeler check [--strict]` | a check of a member, then an `await` (actors) or a gap between `withLock` scopes (types that take locks), then a write of it with no new check |
 | `modeler facts` | everything above as JSON (`schemaVersion` 1, sorted keys) |
 
+Every command exits `64` for a path that does not exist or no Swift file under the paths, and `70` when no file found
+could be read; `modeler check --strict` exits `1` when it reports anything (every finding is a warning).
+
 ```sh
 modeler check Sources
 modeler states Sources --type Session
