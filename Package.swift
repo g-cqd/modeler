@@ -33,7 +33,7 @@ let package = Package(
         // The project model the analyzers share: test code and generated files are not modeled.
         .package(
             url: "https://github.com/g-cqd/analyzerkit.git",
-            revision: "65b105da64158e76b976d649f93ed24110fd6630"
+            revision: "191f42626514259ff9cbdaa097adea9d584da672"
         ),
     ],
     targets: [
@@ -53,6 +53,8 @@ let package = Package(
             name: "modeler",
             dependencies: [
                 "ModelerCore",
+                .product(name: "AnalyzerCLI", package: "analyzerkit"),
+                .product(name: "ProjectModel", package: "analyzerkit"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
