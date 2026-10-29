@@ -1,3 +1,4 @@
+import AnalyzerCLI
 public import ArgumentParser
 import ModelerCore
 import SourceCorpus
@@ -39,7 +40,13 @@ struct CorpusOptions: ParsableArguments {
     var cachePath: String?
 
     /// Loads the corpus, printing a one-line summary and any unreadable file to stderr.
+    /// - Throws: `ExitCode` 64 for a path that does not exist or no Swift file under the paths, 70 when no file found
+    ///   could be read or modelled (ADR-0018).
     func load() async throws -> ModelFacts {
+        if let missing = paths.first(where: { !FileManager.default.fileExists(atPath: $0) }) {
+            write("\(ModelerTool.name): no such file or directory: \(missing)\n", to: .standardError)
+            throw ExitCode(ExitStatus.usage.rawValue)
+        }
         let report = try await Corpus.load(
             paths: paths, cacheURL: noCache ? nil : cacheURL(), includeTests: includeTests)
         for (path, reason) in report.unreadable.sorted(by: { $0.key < $1.key }) {
@@ -52,6 +59,18 @@ struct CorpusOptions: ParsableArguments {
         write(
             "\(ModelerTool.name): \(report.facts.types.count) type(s) in \(report.fileCount) file(s); cache: "
                 + "\(report.cacheHits) reused, \(report.fileCount - report.cacheHits) parsed\n", to: .standardError)
+        guard report.fileCount > 0 else {
+            write("\(ModelerTool.name): no Swift files under \(paths.joined(separator: ", "))\n", to: .standardError)
+            throw ExitCode(ExitStatus.usage.rawValue)
+        }
+        let skipped = report.unreadable.count + report.degraded.count
+        if RunOutcome.status(
+            severities: [], strict: false, analyzedFileCount: report.fileCount - skipped, skippedFileCount: skipped)
+            == .internalFailure
+        {
+            write("\(ModelerTool.name): no file could be read or modelled\n", to: .standardError)
+            throw ExitCode(ExitStatus.internalFailure.rawValue)
+        }
         return report.facts
     }
 

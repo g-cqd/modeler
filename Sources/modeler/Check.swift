@@ -1,5 +1,7 @@
+import AnalyzerCLI
 import ArgumentParser
 import ModelerCore
+import ProjectModel
 import SystemPackage
 
 struct Check: AsyncParsableCommand {
@@ -30,6 +32,9 @@ struct Check: AsyncParsableCommand {
                         + "both; another thread may have changed it\n", to: .standardOutput)
             }
         }
-        if strict, !findings.isEmpty { throw ExitCode(1) }
+        // Every modeler finding is a warning (ADR-0018: it fails the run under --strict).
+        if RunOutcome.fails(findings.map { _ in .warning }, strict: strict) {
+            throw ExitCode(ExitStatus.findings.rawValue)
+        }
     }
 }
