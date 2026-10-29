@@ -45,6 +45,9 @@ struct CorpusOptions: ParsableArguments {
         for (path, reason) in report.unreadable.sorted(by: { $0.key < $1.key }) {
             write("\(ModelerTool.name): could not read \(path): \(reason)\n", to: .standardError)
         }
+        for (path, reason) in report.degraded.sorted(by: { $0.key < $1.key }) {
+            write("\(ModelerTool.name): \(path): \(reason)\n", to: .standardError)
+        }
         if let note = report.cacheNote { write("\(ModelerTool.name): \(note)\n", to: .standardError) }
         write(
             "\(ModelerTool.name): \(report.facts.types.count) type(s) in \(report.fileCount) file(s); cache: "
