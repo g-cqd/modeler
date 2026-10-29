@@ -18,7 +18,7 @@ public enum Corpus {
         /// Files that could not be read, with the reason.
         public let unreadable: [String: String]
         /// Files read but not modelled, with the reason (a syntax tree nested too deeply to walk).
-        public var degraded: [String: String] { [:] }
+        public let degraded: [String: String]
         /// Why the cache was not used, when that is worth telling the user.
         public let cacheNote: String?
     }
@@ -49,16 +49,19 @@ public enum Corpus {
         ) { path, bytes in FactsExtractor.extract(bytes: bytes, path: path) }
         var kept: [FileFacts] = []
         var unreadable: [String: String] = [:]
+        var degraded: [String: String] = [:]
         for file in scan.files {
             if let failure = file.failure {
                 unreadable[file.path] = failure
+            } else if let reason = file.facts?.degraded {
+                degraded[file.path] = reason
             } else if let facts = file.facts, includeTests || !isTestOrGenerated(file.path) {
                 kept.append(facts)
             }
         }
         return Report(
             facts: ModelFacts(files: kept), fileCount: scan.files.count, cacheHits: scan.cacheHits,
-            unreadable: unreadable, cacheNote: scan.cacheLoadFailure)
+            unreadable: unreadable, degraded: degraded, cacheNote: scan.cacheLoadFailure)
     }
 
     private static func isTestOrGenerated(_ path: String) -> Bool {
