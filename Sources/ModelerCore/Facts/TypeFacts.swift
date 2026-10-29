@@ -50,9 +50,13 @@ public struct TypeFacts: Codable, Sendable, Hashable {
 public struct FileFacts: Codable, Sendable, Hashable {
     public let path: String
     public let types: [TypeFacts]
+    /// Why the file was not modelled, when its syntax tree nests too deeply to walk (analyzerkit roadmap 0041). Absent
+    /// from the encoded facts of every modelled file.
+    public let degraded: String?
 
-    public init(path: String, types: [TypeFacts]) {
+    public init(path: String, types: [TypeFacts], degraded: String? = nil) {
         self.path = path
         self.types = types
+        self.degraded = degraded
     }
 }

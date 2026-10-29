@@ -1,3 +1,4 @@
+import ProjectModel
 import SwiftParser
 import SwiftSyntax
 
@@ -9,7 +10,13 @@ public enum FactsExtractor {
     ///   - path: how findings and diagrams name the file.
     /// - Complexity: O(*n*) in the source size.
     public static func extract(source: String, path: String) -> FileFacts {
-        DeclarationExtractor.extract(from: Parser.parse(source: source), path: path)
+        let tree = Parser.parse(source: source)
+        // Extraction recurses once per level of the tree; past the limit the file is listed, not walked.
+        if SyntaxDepth.exceeds(tree) {
+            return FileFacts(
+                path: path, types: [], degraded: "nested deeper than \(SyntaxDepth.defaultLimit) levels; not modelled")
+        }
+        return DeclarationExtractor.extract(from: tree, path: path)
     }
 
     /// As ``extract(source:path:)``, from the file's UTF-8 bytes. Invalid UTF-8 is replaced, not rejected.
