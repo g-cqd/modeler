@@ -17,6 +17,8 @@ public enum Corpus {
         public let cacheHits: Int
         /// Files that could not be read, with the reason.
         public let unreadable: [String: String]
+        /// Files read but not modelled, with the reason (a syntax tree nested too deeply to walk).
+        public var degraded: [String: String] { [:] }
         /// Why the cache was not used, when that is worth telling the user.
         public let cacheNote: String?
     }
