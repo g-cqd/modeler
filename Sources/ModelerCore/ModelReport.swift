@@ -12,7 +12,7 @@ public struct ModelReport: Codable, Sendable {
 
     public init(_ facts: ModelFacts) {
         schemaVersion = Self.schemaVersion
-        types = facts.types
+        types = facts.types.map(\.withoutFlow)
         stateMachines = StateMachines.extract(from: facts)
         reentrancy = ReentrancyAnalysis.findings(in: facts)
     }

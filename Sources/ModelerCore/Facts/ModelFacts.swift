@@ -49,7 +49,7 @@ public struct ModelFacts: Sendable {
                 isNonisolated: method.isNonisolated, attributes: method.attributes,
                 effects: method.effects.compactMap {
                     resolve($0, members: members, functions: functions, isEnum: primary.kind == .enumType)
-                })
+                }, flow: method.flow)
         }
         return TypeFacts(
             name: primary.name, kind: primary.kind,
@@ -78,7 +78,8 @@ public struct ModelFacts: Sendable {
         guard guards.count != effect.when.count else { return effect }
         return Effect(
             kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
-            isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks)
+            isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks,
+            nodes: effect.nodes)
     }
 
     private static func unique(_ values: [String]) -> [String] {

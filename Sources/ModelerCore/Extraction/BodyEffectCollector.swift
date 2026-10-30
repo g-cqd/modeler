@@ -1,3 +1,4 @@
+import ControlFlow
 import SwiftSyntax
 
 /// Walks one method body and records, in source order, the member reads and writes, `await`s, spawns and calls
@@ -22,6 +23,8 @@ final class BodyEffectCollector: SyntaxVisitor {
     private let converter: SourceLocationConverter
     private let locals: Set<String>
     private(set) var effects: [Effect] = []
+    /// Where each effect's syntax starts, to place it in the control-flow graph.
+    private var offsets: [Int] = []
     private var conditionDepth = 0
     private var closureDepth = 0
     private var epoch = 0
@@ -35,13 +38,48 @@ final class BodyEffectCollector: SyntaxVisitor {
         super.init(viewMode: .sourceAccurate)
     }
 
-    /// The effects of `body`, in source order.
+    /// The effects of `body`, in source order, each with the nodes of the body's control-flow graph it happens in,
+    /// and that graph as successor lists (roadmap 0026).
     static func effects(
         of body: CodeBlockSyntax, converter: SourceLocationConverter, locals: Set<String>
-    ) -> [Effect] {
+    ) -> (effects: [Effect], flow: [[Int]]) {
         let collector = BodyEffectCollector(converter: converter, locals: locals)
         collector.walk(body)
-        return collector.effects
+        let graph = ControlFlowGraph.build(body, converter: converter)
+        let placed = place(collector.offsets, in: graph)
+        let effects = zip(collector.effects, placed).map { effect, nodes in
+            Effect(
+                kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
+                isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: effect.when, locks: effect.locks,
+                nodes: nodes)
+        }
+        return (effects, graph.nodes.map { $0.successors.map(\.target) })
+    }
+
+    /// The nodes whose syntax covers each offset. Nodes cover disjoint ranges, except the copies of a `defer` body
+    /// lowered once per exit, which share one.
+    private static func place(_ offsets: [Int], in graph: ControlFlowGraph) -> [[Int]] {
+        var byRange: [Range<Int>: [Int]] = [:]
+        for node in graph.nodes {
+            guard let syntax = node.syntax else { continue }
+            let range =
+                syntax.positionAfterSkippingLeadingTrivia
+                .utf8Offset..<syntax.endPositionBeforeTrailingTrivia
+                .utf8Offset
+            byRange[range, default: []].append(node.id)
+        }
+        let ranges = byRange.keys.sorted { $0.lowerBound < $1.lowerBound }
+        return offsets.map { offset in
+            // The last range starting at or before the offset, the only one that can cover it.
+            var low = 0
+            var high = ranges.count
+            while low < high {
+                let middle = (low + high) / 2
+                if ranges[middle].lowerBound <= offset { low = middle + 1 } else { high = middle }
+            }
+            guard low > 0, ranges[low - 1].contains(offset) else { return [] }
+            return byRange[ranges[low - 1]] ?? []
+        }
     }
 
     // MARK: - Recording
@@ -54,6 +92,7 @@ final class BodyEffectCollector: SyntaxVisitor {
         let guards = known.map {
             StateGuard(property: $0.key, cases: $0.value.cases.sorted(), isFresh: $0.value.epoch == epoch)
         }
+        offsets.append(node.positionAfterSkippingLeadingTrivia.utf8Offset)
         effects.append(
             Effect(
                 kind: kind, line: line(of: node), subject: subject, value: value,
