@@ -1,17 +1,34 @@
 OVERVIEW: A Mermaid class diagram: types, members, conformance and ownership.
 
-USAGE: modeler classes [<paths> ...] [--include-tests] [--no-cache] [--cache-path <cache-path>] [--type <type> ...] [--depth <depth>]
+USAGE: modeler classes [<paths> ...] [--config <file>] [--exclude-path <pattern> ...] [--include-regions <list>] [--exclude-regions <list>] [--define <name> ...] [--only <file> ...] [--only-from <file>] [--cache-path <directory>] [--no-cache] [--type <type> ...] [--depth <depth>]
 
-ARGUMENTS:
-  <paths>                 Files or directories to read (default: the current
-                          directory). (default: .)
+INPUT:
+  <paths>                 Swift files or directories to analyze. (default: .)
+  --config <file>         Configuration file (default: the tool's configuration
+                          file in the current directory, when present).
+  --exclude-path <pattern>
+                          Leave out the paths matching this pattern
+                          (repeatable): a substring, or a glob with *, ? or [.
+  --include-regions <list>
+                          Regions to treat as first-class code:
+                          preview,debug,test,mock,generated,script, or all.
+  --exclude-regions <list>
+                          Regions to keep out of scope, even under
+                          --include-regions all.
+  --define <name>         An #if condition to treat as set (repeatable; the
+                          compiler's -D).
+  --only <file>           Report only findings in this file (repeatable); the
+                          whole corpus is still analyzed.
+  --only-from <file>      Read --only paths from a file, one per line ('-'
+                          reads stdin).
+
+CACHE:
+  --cache-path <directory>
+                          The facts cache's root directory (default: the tool's
+                          directory in the user cache directory).
+  --no-cache              Do not read or write the facts cache.
 
 OPTIONS:
-  --include-tests         Model test and generated code too.
-  --no-cache              Do not read or write the facts cache.
-  --cache-path <cache-path>
-                          The facts cache file (default: a per-workspace file
-                          under the user cache directory).
   --type <type>           Centre the diagram on this type; repeatable. Without
                           it every type is drawn.
   --depth <depth>         How many edges away from --type to include. (default:

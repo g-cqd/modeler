@@ -4,6 +4,9 @@ import Testing
 /// What modeler printed before it moved onto analyzerkit's shared surface (analyzerkit roadmap 0022), pinned:
 /// `check`'s xcode report and every diagram, byte for byte, on `Goldens/Corpus`. Recorded from `a271b20`'s build;
 /// regenerate only for a deliberate change, and say so in the release notes.
+///
+/// One deliberate change since the recording: the summary on stderr counts 3 files, not 4. A test file is no longer
+/// parsed and then dropped; its region is known before the scan, so it is not read at all.
 @Suite(.serialized) struct ReportGoldenTests {
     private static let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     private static let goldens = testsDirectory.appending(path: "Goldens")

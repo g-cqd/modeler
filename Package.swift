@@ -28,12 +28,12 @@ let package = Package(
         // The JSON coder for the facts report, and for the facts cache through analyzerkit.
         .package(
             url: "https://github.com/g-cqd/AemiJSON.git",
-            revision: "9a7d4450ff518a390613821913ba85c6a6944521"
+            revision: "b59ce29617af52ec8585377d694e64becbe2ce81"
         ),
         // The project model the analyzers share: test code and generated files are not modeled.
         .package(
             url: "https://github.com/g-cqd/analyzerkit.git",
-            revision: "30322712f88c2a0effdda093fdc4cacca62b8642"
+            revision: "d535d92a71d78c5585aca634450fdc03eebf5091"
         ),
     ],
     targets: [
@@ -45,6 +45,9 @@ let package = Package(
                 .product(name: "ProjectModel", package: "analyzerkit"),
                 .product(name: "SourceCorpus", package: "analyzerkit"),
                 .product(name: "CorpusScan", package: "analyzerkit"),
+                .product(name: "AnalyzerConfiguration", package: "analyzerkit"),
+                .product(name: "ReportSupport", package: "analyzerkit"),
+                .product(name: "Suppression", package: "analyzerkit"),
                 .product(name: "AemiJSON", package: "AemiJSON"),
             ],
             swiftSettings: strictSwiftSettings
@@ -54,7 +57,11 @@ let package = Package(
             dependencies: [
                 "ModelerCore",
                 .product(name: "AnalyzerCLI", package: "analyzerkit"),
+                .product(name: "AnalyzerConfiguration", package: "analyzerkit"),
+                .product(name: "CorpusScan", package: "analyzerkit"),
                 .product(name: "ProjectModel", package: "analyzerkit"),
+                .product(name: "ReportSupport", package: "analyzerkit"),
+                .product(name: "SourceCorpus", package: "analyzerkit"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
@@ -65,6 +72,8 @@ let package = Package(
             dependencies: [
                 "ModelerCore",
                 .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "CorpusScan", package: "analyzerkit"),
+                .product(name: "ProjectModel", package: "analyzerkit"),
             ],
             swiftSettings: strictSwiftSettings
         ),
