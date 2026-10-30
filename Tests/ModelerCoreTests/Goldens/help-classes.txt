@@ -1,0 +1,21 @@
+OVERVIEW: A Mermaid class diagram: types, members, conformance and ownership.
+
+USAGE: modeler classes [<paths> ...] [--include-tests] [--no-cache] [--cache-path <cache-path>] [--type <type> ...] [--depth <depth>]
+
+ARGUMENTS:
+  <paths>                 Files or directories to read (default: the current
+                          directory). (default: .)
+
+OPTIONS:
+  --include-tests         Model test and generated code too.
+  --no-cache              Do not read or write the facts cache.
+  --cache-path <cache-path>
+                          The facts cache file (default: a per-workspace file
+                          under the user cache directory).
+  --type <type>           Centre the diagram on this type; repeatable. Without
+                          it every type is drawn.
+  --depth <depth>         How many edges away from --type to include. (default:
+                          1)
+  --version               Show the version.
+  -h, --help              Show help information.
+

@@ -1,0 +1,599 @@
+{
+  "reentrancy" : [
+    {
+      "awaited" : "the lock is not held across the check and the write",
+      "checkLine" : 9,
+      "file" : "<root>/Sources/App/Cache.swift",
+      "kind" : "lockGap",
+      "method" : "warm()",
+      "property" : "ready",
+      "suspendLine" : 9,
+      "type" : "Cache",
+      "writeLine" : 10
+    },
+    {
+      "awaited" : "fetch()",
+      "checkLine" : 6,
+      "file" : "<root>/Sources/App/Loader.swift",
+      "kind" : "await",
+      "method" : "load()",
+      "property" : "phase",
+      "suspendLine" : 7,
+      "type" : "Loader",
+      "writeLine" : 8
+    }
+  ],
+  "schemaVersion" : 1,
+  "stateMachines" : [
+    {
+      "cases" : [
+        "open",
+        "closed",
+        "locked"
+      ],
+      "initial" : "closed",
+      "opaqueWrites" : 0,
+      "owner" : "Door",
+      "property" : "state",
+      "stateType" : "DoorState",
+      "transitions" : [
+        {
+          "from" : [
+            "closed"
+          ],
+          "isStale" : false,
+          "line" : 11,
+          "method" : "open()",
+          "to" : "open"
+        },
+        {
+          "from" : [
+            "open"
+          ],
+          "isStale" : false,
+          "line" : 15,
+          "method" : "close()",
+          "to" : "closed"
+        },
+        {
+          "from" : [
+            "closed"
+          ],
+          "isStale" : false,
+          "line" : 19,
+          "method" : "lock()",
+          "to" : "locked"
+        }
+      ]
+    }
+  ],
+  "types" : [
+    {
+      "attributes" : [],
+      "cases" : [],
+      "file" : "<root>/Sources/App/Cache.swift",
+      "inherited" : [
+        "@unchecked Sendable"
+      ],
+      "kind" : "class",
+      "line" : 3,
+      "methods" : [
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "acquire",
+              "line" : 9,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            },
+            {
+              "closureDepth" : 1,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 9,
+              "locks" : [
+                "lock"
+              ],
+              "subject" : "ready",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "release",
+              "line" : 9,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "acquire",
+              "line" : 10,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            },
+            {
+              "closureDepth" : 1,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 10,
+              "locks" : [
+                "lock"
+              ],
+              "subject" : "ready",
+              "value" : "true",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "release",
+              "line" : 10,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            }
+          ],
+          "file" : "<root>/Sources/App/Cache.swift",
+          "isAsync" : false,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 8,
+          "name" : "warm",
+          "signature" : "warm()"
+        },
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "acquire",
+              "line" : 13,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            },
+            {
+              "closureDepth" : 1,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 13,
+              "locks" : [
+                "lock"
+              ],
+              "subject" : "value",
+              "value" : "1",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "release",
+              "line" : 13,
+              "locks" : [],
+              "subject" : "lock",
+              "when" : []
+            }
+          ],
+          "file" : "<root>/Sources/App/Cache.swift",
+          "isAsync" : false,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 13,
+          "name" : "store",
+          "signature" : "store()"
+        }
+      ],
+      "name" : "Cache",
+      "properties" : [
+        {
+          "initialLiteral" : "false",
+          "isMutable" : true,
+          "isStatic" : false,
+          "line" : 4,
+          "name" : "ready"
+        },
+        {
+          "initialLiteral" : "0",
+          "isMutable" : true,
+          "isStatic" : false,
+          "line" : 5,
+          "name" : "value"
+        },
+        {
+          "isMutable" : false,
+          "isStatic" : false,
+          "line" : 6,
+          "name" : "lock"
+        }
+      ]
+    },
+    {
+      "attributes" : [],
+      "cases" : [],
+      "file" : "<root>/Sources/App/Door.swift",
+      "inherited" : [],
+      "kind" : "class",
+      "line" : 7,
+      "methods" : [
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 11,
+              "locks" : [],
+              "subject" : "state",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 11,
+              "locks" : [],
+              "subject" : "state",
+              "value" : "open",
+              "when" : [
+                {
+                  "cases" : [
+                    "closed"
+                  ],
+                  "isFresh" : true,
+                  "property" : "state"
+                }
+              ]
+            }
+          ],
+          "file" : "<root>/Sources/App/Door.swift",
+          "isAsync" : false,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 10,
+          "name" : "open",
+          "signature" : "open()"
+        },
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 15,
+              "locks" : [],
+              "subject" : "state",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 15,
+              "locks" : [],
+              "subject" : "state",
+              "value" : "closed",
+              "when" : [
+                {
+                  "cases" : [
+                    "open"
+                  ],
+                  "isFresh" : true,
+                  "property" : "state"
+                }
+              ]
+            }
+          ],
+          "file" : "<root>/Sources/App/Door.swift",
+          "isAsync" : false,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 14,
+          "name" : "close",
+          "signature" : "close()"
+        },
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 19,
+              "locks" : [],
+              "subject" : "state",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 19,
+              "locks" : [],
+              "subject" : "state",
+              "value" : "locked",
+              "when" : [
+                {
+                  "cases" : [
+                    "closed"
+                  ],
+                  "isFresh" : true,
+                  "property" : "state"
+                }
+              ]
+            }
+          ],
+          "file" : "<root>/Sources/App/Door.swift",
+          "isAsync" : false,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 18,
+          "name" : "lock",
+          "signature" : "lock()"
+        }
+      ],
+      "name" : "Door",
+      "properties" : [
+        {
+          "initialCase" : "closed",
+          "isMutable" : true,
+          "isStatic" : false,
+          "line" : 8,
+          "name" : "state",
+          "typeText" : "DoorState"
+        }
+      ]
+    },
+    {
+      "attributes" : [],
+      "cases" : [
+        {
+          "name" : "open",
+          "payload" : []
+        },
+        {
+          "name" : "closed",
+          "payload" : []
+        },
+        {
+          "name" : "locked",
+          "payload" : []
+        }
+      ],
+      "file" : "<root>/Sources/App/Door.swift",
+      "inherited" : [],
+      "kind" : "enum",
+      "line" : 1,
+      "methods" : [],
+      "name" : "DoorState",
+      "properties" : []
+    },
+    {
+      "attributes" : [],
+      "cases" : [],
+      "file" : "<root>/Sources/App/Loader.swift",
+      "inherited" : [],
+      "kind" : "actor",
+      "line" : 1,
+      "methods" : [
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 6,
+              "locks" : [],
+              "subject" : "phase",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "call",
+              "line" : 7,
+              "locks" : [],
+              "subject" : "fetch",
+              "when" : [
+                {
+                  "cases" : [
+                    "0"
+                  ],
+                  "isFresh" : true,
+                  "property" : "phase"
+                }
+              ]
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "suspend",
+              "line" : 7,
+              "locks" : [],
+              "subject" : "fetch()",
+              "when" : [
+                {
+                  "cases" : [
+                    "0"
+                  ],
+                  "isFresh" : true,
+                  "property" : "phase"
+                }
+              ]
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 8,
+              "locks" : [],
+              "subject" : "phase",
+              "value" : "1",
+              "when" : [
+                {
+                  "cases" : [
+                    "0"
+                  ],
+                  "isFresh" : false,
+                  "property" : "phase"
+                }
+              ]
+            }
+          ],
+          "file" : "<root>/Sources/App/Loader.swift",
+          "isAsync" : true,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 5,
+          "name" : "load",
+          "signature" : "load()"
+        },
+        {
+          "attributes" : [],
+          "effects" : [
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 12,
+              "locks" : [],
+              "subject" : "phase",
+              "when" : []
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "call",
+              "line" : 13,
+              "locks" : [],
+              "subject" : "fetch",
+              "when" : [
+                {
+                  "cases" : [
+                    "1"
+                  ],
+                  "isFresh" : true,
+                  "property" : "phase"
+                }
+              ]
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "suspend",
+              "line" : 13,
+              "locks" : [],
+              "subject" : "fetch()",
+              "when" : [
+                {
+                  "cases" : [
+                    "1"
+                  ],
+                  "isFresh" : true,
+                  "property" : "phase"
+                }
+              ]
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : true,
+              "kind" : "read",
+              "line" : 14,
+              "locks" : [],
+              "subject" : "phase",
+              "when" : [
+                {
+                  "cases" : [
+                    "1"
+                  ],
+                  "isFresh" : false,
+                  "property" : "phase"
+                }
+              ]
+            },
+            {
+              "closureDepth" : 0,
+              "isCheck" : false,
+              "kind" : "write",
+              "line" : 15,
+              "locks" : [],
+              "subject" : "phase",
+              "value" : "2",
+              "when" : [
+                {
+                  "cases" : [
+                    "1"
+                  ],
+                  "isFresh" : true,
+                  "property" : "phase"
+                }
+              ]
+            }
+          ],
+          "file" : "<root>/Sources/App/Loader.swift",
+          "isAsync" : true,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 11,
+          "name" : "reload",
+          "signature" : "reload()"
+        },
+        {
+          "attributes" : [],
+          "effects" : [],
+          "file" : "<root>/Sources/App/Loader.swift",
+          "isAsync" : true,
+          "isMutating" : false,
+          "isNonisolated" : false,
+          "isStatic" : false,
+          "isThrowing" : false,
+          "line" : 18,
+          "name" : "fetch",
+          "signature" : "fetch()"
+        }
+      ],
+      "name" : "Loader",
+      "properties" : [
+        {
+          "initialLiteral" : "0",
+          "isMutable" : true,
+          "isStatic" : false,
+          "line" : 2,
+          "name" : "phase"
+        },
+        {
+          "initialLiteral" : "0",
+          "isMutable" : true,
+          "isStatic" : false,
+          "line" : 3,
+          "name" : "count"
+        }
+      ]
+    }
+  ]
+}

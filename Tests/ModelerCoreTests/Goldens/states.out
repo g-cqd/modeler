@@ -1,0 +1,9 @@
+stateDiagram-v2
+    %% Door.state: DoorState
+    open
+    closed
+    locked
+    [*] --> closed
+    closed --> open : open() L11
+    open --> closed : close() L15
+    closed --> locked : lock() L19

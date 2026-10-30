@@ -1,0 +1,19 @@
+OVERVIEW: Reports a check of a member that an await, or a gap between locks,
+can invalidate before the write that relies on it.
+
+USAGE: modeler check [<paths> ...] [--include-tests] [--no-cache] [--cache-path <cache-path>] [--strict]
+
+ARGUMENTS:
+  <paths>                 Files or directories to read (default: the current
+                          directory). (default: .)
+
+OPTIONS:
+  --include-tests         Model test and generated code too.
+  --no-cache              Do not read or write the facts cache.
+  --cache-path <cache-path>
+                          The facts cache file (default: a per-workspace file
+                          under the user cache directory).
+  --strict                Exit 1 when anything is reported.
+  --version               Show the version.
+  -h, --help              Show help information.
+
