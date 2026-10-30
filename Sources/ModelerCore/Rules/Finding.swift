@@ -17,7 +17,7 @@ public struct Finding: Codable, Sendable, Hashable {
     public let message: String
 
     public init(_ finding: ReentrancyFinding, severity: Severity) {
-        rule = finding.kind == .await ? .reentrancy : .lockGap
+        rule = finding.kind == .lockGap ? .lockGap : .reentrancy
         self.severity = severity
         path = finding.file
         line = finding.writeLine
@@ -29,10 +29,26 @@ public struct Finding: Codable, Sendable, Hashable {
             message =
                 "\(function) checks '\(finding.property)' at line \(finding.checkLine), awaits \(finding.awaited) at "
                 + "line \(finding.suspendLine), then writes it without checking again; another call may have changed it"
+        case .claimedAwait:
+            message =
+                "\(function) checks '\(finding.property)' at line \(finding.checkLine) and claims it at line "
+                + "\(finding.claimLine ?? finding.checkLine), awaits \(finding.awaited) at line \(finding.suspendLine), then "
+                + "writes it; \(Self.writers(finding.writers ?? [])) and may run during the await"
         case .lockGap:
             message =
                 "\(function) checks '\(finding.property)' at line \(finding.checkLine) and writes it at line "
                 + "\(finding.writeLine) without one lock held across both; another thread may have changed it"
+        }
+    }
+
+    /// `reset() also writes it`, `a(), b() and c() also write it`, and past three, `a(), b(), c() and 5 other methods`.
+    private static func writers(_ names: [String]) -> String {
+        switch names.count {
+        case 0: return "another method also writes it"
+        case 1: return "\(names[0]) also writes it"
+        case 2...3: return names.dropLast().joined(separator: ", ") + " and \(names[names.count - 1]) also write it"
+        default:
+            return names.prefix(3).joined(separator: ", ") + " and \(names.count - 3) other methods also write it"
         }
     }
 

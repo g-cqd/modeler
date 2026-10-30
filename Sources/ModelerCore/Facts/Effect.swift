@@ -32,10 +32,14 @@ public struct Effect: Codable, Sendable, Hashable {
     public let when: [StateGuard]
     /// The `withLock` scopes that enclose the effect, outermost first.
     public let locks: [String]
+    /// The nodes of the method's control-flow graph (``MethodFacts/flow``) the effect happens in: one, or one per exit
+    /// for an effect in a `defer`. Nil or empty when no node covers it (a `case` pattern), and left out of
+    /// `modeler facts`.
+    public let nodes: [Int]?
 
     public init(
         kind: Kind, line: Int, subject: String, value: String? = nil, isCheck: Bool = false, closureDepth: Int = 0,
-        when: [StateGuard] = [], locks: [String] = []
+        when: [StateGuard] = [], locks: [String] = [], nodes: [Int]? = nil
     ) {
         self.kind = kind
         self.line = line
@@ -45,6 +49,14 @@ public struct Effect: Codable, Sendable, Hashable {
         self.closureDepth = closureDepth
         self.when = when
         self.locks = locks
+        self.nodes = nodes
+    }
+
+    /// The effect without its graph nodes, as `modeler facts` prints it.
+    public var withoutFlow: Effect {
+        Effect(
+            kind: kind, line: line, subject: subject, value: value, isCheck: isCheck, closureDepth: closureDepth,
+            when: when, locks: locks)
     }
 }
 

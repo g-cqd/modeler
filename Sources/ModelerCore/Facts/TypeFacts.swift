@@ -36,6 +36,13 @@ public struct TypeFacts: Codable, Sendable, Hashable {
         self.methods = methods
     }
 
+    /// The type without its methods' control-flow graphs, as `modeler facts` prints it.
+    public var withoutFlow: TypeFacts {
+        TypeFacts(
+            name: name, kind: kind, inherited: inherited, attributes: attributes, file: file, line: line,
+            properties: properties, cases: cases, methods: methods.map(\.withoutFlow))
+    }
+
     /// The last component of ``name``.
     public var simpleName: String { name.split(separator: ".").last.map(String.init) ?? name }
 

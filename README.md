@@ -57,15 +57,20 @@ its own step, so an unlocked check then write can interleave with another caller
 
 ## Limits
 
-Syntactic and path-insensitive: a check in one branch and a write in another can pair. A narrowing lasts for the block
-that established it. `x.append(…)`-style calls count as writes only for a fixed list of mutating names. A local
-variable that shares a member's name hides the member for the whole method; `self.name` still reaches it.
+Syntactic. `check` follows each method's control-flow graph: a check and a write pair only when one path joins them,
+a loop carries a check and an `await` into its next iteration, and a write between the check and the `await` claims
+the member. A claim is reported (as a claimed `reentrancy`) only when another method of the type writes the member.
+The narrowings the TLA+ model and `states` use stay positional: a narrowing lasts for the block that established it.
+`x.append(…)`-style calls count as writes only for a fixed list of mutating names. A local variable that shares a
+member's name hides the member for the whole method; `self.name` still reaches it.
 
 ## Shared code
 
 File discovery, path canonicalization, bounded reads, content fingerprints, the build-identity-gated facts cache and the
-parallel scan come from [analyzerkit](https://github.com/g-cqd/analyzerkit) (`SourceCorpus`, `CorpusScan`), the same
-code arcleak, dolly and deadwood use. Unchanged files are not parsed again.
+parallel scan come from [analyzerkit](https://github.com/g-cqd/analyzerkit) (`SourceCorpus`, `CorpusScan`), as for
+arcleak, dolly, deadwood and fcheck; the control-flow graph comes from its `ControlFlow`, which fcheck uses too.
+Unchanged files are not parsed again. The command-line surface, configuration, baselines and suppression comments
+are analyzerkit's as well.
 
 ## Develop
 
