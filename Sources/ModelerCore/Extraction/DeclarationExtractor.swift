@@ -154,7 +154,7 @@ final class DeclarationExtractor: SyntaxVisitor {
                 var localNames = LocalBindings.collect(parameters: nil, body: body)
                 let paramName = accessor.parameters?.name.text ?? "newValue"
                 localNames.insert(paramName)
-                let effects = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
+                let (effects, flow) = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
                 scopes[scopes.count - 1].methods.append(
                     MethodFacts(
                         signature: "\(name).set", name: "\(name)_set", file: path,
@@ -162,7 +162,7 @@ final class DeclarationExtractor: SyntaxVisitor {
                         isAsync: false, isThrowing: false,
                         isStatic: modifiers.contains("static") || modifiers.contains("class"),
                         isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
-                        attributes: Self.attributeNames(node.attributes), effects: effects))
+                        attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
             }
         }
         return .skipChildren
@@ -177,7 +177,7 @@ final class DeclarationExtractor: SyntaxVisitor {
                 var localNames = LocalBindings.collect(parameters: node.parameterClause, body: body)
                 let paramName = accessor.parameters?.name.text ?? "newValue"
                 localNames.insert(paramName)
-                let effects = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
+                let (effects, flow) = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
                 scopes[scopes.count - 1].methods.append(
                     MethodFacts(
                         signature: "subscript.set", name: "subscript_set", file: path,
@@ -185,7 +185,7 @@ final class DeclarationExtractor: SyntaxVisitor {
                         isAsync: false, isThrowing: false,
                         isStatic: modifiers.contains("static") || modifiers.contains("class"),
                         isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
-                        attributes: Self.attributeNames(node.attributes), effects: effects))
+                        attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
             }
         }
         return .skipChildren
@@ -195,12 +195,12 @@ final class DeclarationExtractor: SyntaxVisitor {
         guard !scopes.isEmpty else { return .skipChildren }
         let modifiers = Set(node.modifiers.map { $0.name.text })
         let labels = node.signature.parameterClause.parameters.map { $0.firstName.text + ":" }.joined()
-        let effects =
+        let (effects, flow) =
             node.body.map {
                 BodyEffectCollector.effects(
                     of: $0, converter: converter,
                     locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0))
-            } ?? []
+            } ?? ([], nil)
         scopes[scopes.count - 1].methods.append(
             MethodFacts(
                 signature: "\(node.name.text)(\(labels))", name: node.name.text, file: path,
@@ -209,26 +209,26 @@ final class DeclarationExtractor: SyntaxVisitor {
                 isThrowing: node.signature.effectSpecifiers?.throwsClause != nil,
                 isStatic: modifiers.contains("static") || modifiers.contains("class"),
                 isMutating: modifiers.contains("mutating"), isNonisolated: modifiers.contains("nonisolated"),
-                attributes: Self.attributeNames(node.attributes), effects: effects))
+                attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
         return .skipChildren
     }
 
     override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
         guard !scopes.isEmpty else { return .skipChildren }
         let labels = node.signature.parameterClause.parameters.map { $0.firstName.text + ":" }.joined()
-        let effects =
+        let (effects, flow) =
             node.body.map {
                 BodyEffectCollector.effects(
                     of: $0, converter: converter,
                     locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0))
-            } ?? []
+            } ?? ([], nil)
         scopes[scopes.count - 1].methods.append(
             MethodFacts(
                 signature: "init(\(labels))", name: "init", file: path,
                 line: converter.location(for: node.positionAfterSkippingLeadingTrivia).line,
                 isAsync: node.signature.effectSpecifiers?.asyncSpecifier != nil,
                 isThrowing: node.signature.effectSpecifiers?.throwsClause != nil, isStatic: false, isMutating: false,
-                isNonisolated: false, attributes: Self.attributeNames(node.attributes), effects: effects))
+                isNonisolated: false, attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
         return .skipChildren
     }
 

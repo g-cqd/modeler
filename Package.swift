@@ -45,6 +45,7 @@ let package = Package(
                 .product(name: "ProjectModel", package: "analyzerkit"),
                 .product(name: "SourceCorpus", package: "analyzerkit"),
                 .product(name: "CorpusScan", package: "analyzerkit"),
+                .product(name: "ControlFlow", package: "analyzerkit"),
                 .product(name: "AnalyzerConfiguration", package: "analyzerkit"),
                 .product(name: "ReportSupport", package: "analyzerkit"),
                 .product(name: "Suppression", package: "analyzerkit"),
