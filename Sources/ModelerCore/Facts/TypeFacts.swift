@@ -53,10 +53,14 @@ public struct FileFacts: Codable, Sendable, Hashable {
     /// Why the file was not modelled, when its syntax tree nests too deeply to walk (analyzerkit roadmap 0041). Absent
     /// from the encoded facts of every modelled file.
     public let degraded: String?
+    /// The file's region (`CodeRegion.rawValue`) as its project and content say (analyzerkit ADR-0024); 0 is
+    /// production code.
+    public var region: UInt8
 
-    public init(path: String, types: [TypeFacts], degraded: String? = nil) {
+    public init(path: String, types: [TypeFacts], degraded: String? = nil, region: UInt8 = 0) {
         self.path = path
         self.types = types
         self.degraded = degraded
+        self.region = region
     }
 }

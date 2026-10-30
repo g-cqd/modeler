@@ -78,6 +78,17 @@ import Testing
         }
     }
 
+    /// ADR-0019: each tool pins its own help. Recorded from the migrated build; regenerate only for a deliberate change.
+    @Test(arguments: ["check", "classes"])
+    func `the help is the recorded one`(command: String) throws {
+        try Self.workspace([:]) { root in
+            let golden = Self.packageRoot.appending(path: "Tests/ModelerCoreTests/Goldens/help-\(command).txt")
+            let recorded = try String(contentsOf: golden, encoding: .utf8)
+            let help = try Self.run([command, "--help"], in: root).output
+            #expect(help == recorded)
+        }
+    }
+
     @Test func `JSON and SARIF reports carry the finding with its rule and fingerprint`() throws {
         try Self.workspace(["Sources/A.swift": Self.reentrant("A")]) { root in
             let json = try Self.run(["check", ".", "--no-cache", "--format", "json"], in: root)
