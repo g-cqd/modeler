@@ -9,13 +9,13 @@ import Testing
     /// One file with exactly one finding of `rule`.
     private static let finding =
         "actor Counter {\n    var value = 0\n    func bump() async {\n        if value == 0 {\n            await work()\n            value = 1\n        }\n    }\n    func work() async {}\n}\n"
-    private static let rule: String? = nil
+    private static let rule: String? = "reentrancy"
     /// A configuration giving `rule` a severity, or nil when the tool has no configuration file.
     private static func configuration(severity: String) -> String? {
-        nil
+        #"{"severity": {"reentrancy": "\#(severity)"}}"#
     }
     private static let cacheFlags: [String] = ["--no-cache"]
-    private static let hasBaseline = false
+    private static let hasBaseline = true
 
     private static let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent()
