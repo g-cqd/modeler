@@ -1,0 +1,2 @@
+<root>/Sources/App/Cache.swift:10:1: warning: [lock-gap] Cache.warm() checks 'ready' at line 9 and writes it at line 10 without one lock held across both; another thread may have changed it
+<root>/Sources/App/Loader.swift:8:1: warning: [reentrancy] Loader.load() checks 'phase' at line 6, awaits fetch() at line 7, then writes it without checking again; another call may have changed it

@@ -1,0 +1,29 @@
+classDiagram
+    class Cache["Cache"] {
+        +ready
+        +value
+        -lock
+        +warm()
+        +store()
+    }
+    class Door["Door"] {
+        +state: DoorState
+        +open()
+        +close()
+        +lock()
+    }
+    class DoorState["DoorState"] {
+        <<enumeration>>
+        open
+        closed
+        locked
+    }
+    class Loader["Loader"] {
+        <<actor>>
+        +phase
+        +count
+        +load() async
+        +reload() async
+        +fetch() async
+    }
+    Door --> DoorState : state

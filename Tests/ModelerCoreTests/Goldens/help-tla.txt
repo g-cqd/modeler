@@ -1,0 +1,25 @@
+OVERVIEW: A TLA+ model and TLC configuration of one type's state and methods.
+
+USAGE: modeler tla [<paths> ...] [--include-tests] [--no-cache] [--cache-path <cache-path>] --type <type> [--output <output>] [--callers <callers>] [--int-max <int-max>] [--opaque <opaque>]
+
+ARGUMENTS:
+  <paths>                 Files or directories to read (default: the current
+                          directory). (default: .)
+
+OPTIONS:
+  --include-tests         Model test and generated code too.
+  --no-cache              Do not read or write the facts cache.
+  --cache-path <cache-path>
+                          The facts cache file (default: a per-workspace file
+                          under the user cache directory).
+  --type <type>           The type to model, qualified or simple.
+  --output <output>       Write <Type>Model.tla and .cfg into this directory;
+                          without it the module is printed.
+  --callers <callers>     Concurrent callers in the model. (default: 2)
+  --int-max <int-max>     The largest integer an integer member takes.
+                          (default: 2)
+  --opaque <opaque>       Interchangeable values for members of other types.
+                          (default: 2)
+  --version               Show the version.
+  -h, --help              Show help information.
+
