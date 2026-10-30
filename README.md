@@ -8,11 +8,26 @@ members, and what each method body does to them, and writes:
 | `modeler classes [--type T --depth N]` | a Mermaid class diagram: types, members, conformance, inheritance, ownership |
 | `modeler states [--type T] [--output dir]` | a Mermaid state diagram for each enum-valued member the code assigns, and for each enum that assigns itself; a transition guarded before an `await` is marked `stale` |
 | `modeler tla --type T [--output dir]` | a TLA+ module and TLC configuration for one type: one action per segment between `await`s, run by `Procs` callers |
-| `modeler check [--strict]` | a check of a member, then an `await` (actors) or a gap between `withLock` scopes (types that take locks), then a write of it with no new check |
+| `modeler check` | a check of a member, then an `await` (rule `reentrancy`, actors) or a gap between `withLock` scopes (rule `lock-gap`, types that take locks), then a write of it with no new check |
 | `modeler facts` | everything above as JSON (`schemaVersion` 1, sorted keys) |
+| `modeler rules [id]`, `modeler explain id` | the rules, or one explained |
 
-Every command exits `64` for a path that does not exist or no Swift file under the paths, and `70` when no file found
-could be read; `modeler check --strict` exits `1` when it reports anything (every finding is a warning).
+`check` takes the options arcleak, deadwood, dolly and fcheck take (analyzerkit ADR-0019): `--format xcode|json|sarif`,
+`--relative-to`, `--strict`, `--baseline`, `--write-baseline`, `--report-new-since`, `--only`, `--only-from`, `--rules`,
+`--verbose`, `--quiet`, `--timings`. Every command takes the input and cache options: `--config`, `--exclude-path`,
+`--include-regions` and `--exclude-regions` (`test`, `generated`, `script`, …; only production code by default; a file's
+region comes from its package or Xcode project first, then its content, then path conventions), `--cache-path DIR` (the
+cache's root directory) and `--no-cache`. `--include-tests` is a deprecated spelling of `--include-regions
+test,generated`; `--define` is accepted and has no effect yet, since modeler reads every `#if` clause.
+
+Configuration: `.modeler.json`, or a `"modeler"` section of the shared `.swift-analyzers.json`, found as the other tools
+find theirs: `{"disable": ["lock-gap"], "severity": {"reentrancy": "error"}, "exclude": ["/Generated/"]}`. A comment
+`// @modeler:accept reentrancy -- reason` (or `@md:`; also `accept:this`, `accept:next`, `disable`, `enable`) suppresses a
+finding.
+
+Exit statuses (ADR-0018): `0` passed; `1` an error finding, or with `--strict` a warning (findings are warnings unless the
+configuration says otherwise); `64` usage, a path that does not exist or no Swift file; `70` no file could be read; `74` a
+baseline that could not be written; `78` an invalid configuration or baseline.
 
 ```sh
 modeler check Sources

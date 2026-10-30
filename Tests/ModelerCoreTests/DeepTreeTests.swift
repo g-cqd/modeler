@@ -18,7 +18,7 @@ import Testing
         try Self.chain("Deeper", 15_000).write(
             to: root.appending(path: "Deeper.swift"), atomically: true, encoding: .utf8)
         try "struct Plain {}\n".write(to: root.appending(path: "Plain.swift"), atomically: true, encoding: .utf8)
-        let report = try await Corpus.load(paths: [root.path], cacheURL: nil)
+        let report = try await Corpus.load(paths: [root.path], cache: nil)
         #expect(report.facts.types.map(\.name).sorted() == ["Deep", "Plain"])
         #expect(report.degraded.keys.map { ($0 as NSString).lastPathComponent } == ["Deeper.swift"])
         #expect(report.unreadable.isEmpty)
