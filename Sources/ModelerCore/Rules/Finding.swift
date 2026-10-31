@@ -17,7 +17,7 @@ public struct Finding: Codable, Sendable, Hashable {
     public let message: String
 
     public init(_ finding: ReentrancyFinding, severity: Severity) {
-        rule = finding.kind == .lockGap ? .lockGap : .reentrancy
+        rule = finding.kind.rule
         self.severity = severity
         path = finding.file
         line = finding.writeLine
@@ -38,6 +38,15 @@ public struct Finding: Codable, Sendable, Hashable {
             message =
                 "\(function) checks '\(finding.property)' at line \(finding.checkLine) and writes it at line "
                 + "\(finding.writeLine) without one lock held across both; another thread may have changed it"
+        case .staleIndex:
+            message =
+                "\(function) takes an index into '\(finding.property)' at line \(finding.checkLine), awaits "
+                + "\(finding.awaited) at line \(finding.suspendLine), then uses it on '\(finding.property)'; another "
+                + "call may have moved its elements, so it may name another element or trap: look it up again"
+        case .continuationOverwrite:
+            message =
+                "\(function) stores a continuation in '\(finding.property)', which may still hold one that was not "
+                + "resumed; that caller would never resume: check that it is nil, or resume it first"
         }
     }
 

@@ -60,9 +60,16 @@ public enum ReentrancyAnalysis {
         var found: [ReentrancyFinding] = []
         for type in facts.types {
             let mutable = Set(type.properties.filter { $0.isMutable && !$0.isStatic }.map(\.name))
+            found += continuationOverwrites(in: type)
             if type.isIsolated {
                 for method in type.methods where !method.isNonisolated && !method.isStatic {
-                    found += awaits(method, in: type, mutable: mutable)
+                    let indices = staleIndices(method, in: type)
+                    // A use of a kept index is reported under its own rule, not again as a check-then-write.
+                    let uses = Set(indices.map { "\($0.property)|\($0.writeLine)" })
+                    found += awaits(method, in: type, mutable: mutable).filter {
+                        !uses.contains("\($0.property)|\($0.writeLine)")
+                    }
+                    found += indices
                 }
             } else if type.kind == .classType || type.kind == .structType,
                 type.methods.contains(where: { $0.effects.contains { $0.kind == .acquire } })
@@ -215,6 +222,139 @@ public enum ReentrancyAnalysis {
             for effect in byNode[node] { step(effect, &state, true) }
         }
         return found.sorted { ($0.writeLine, $0.property) < ($1.writeLine, $1.property) }
+    }
+
+    // MARK: - Indices kept across an await (roadmap 0064)
+
+    private struct KeptIndex: Equatable {
+        var member: String
+        var bindLine: Int
+        var suspendLine: Int
+        var awaited: String
+    }
+
+    private struct IndexState: Equatable {
+        /// Index locals bound since the last `await`: the member and the binding's line.
+        var bound: [String: KeptIndex] = [:]
+        /// Index locals bound before an `await` and not bound again since.
+        var stale: [String: KeptIndex] = [:]
+
+        static func join(_ left: IndexState, _ right: IndexState) -> IndexState {
+            let earliest: (KeptIndex, KeptIndex) -> KeptIndex = { $0.bindLine <= $1.bindLine ? $0 : $1 }
+            return IndexState(
+                bound: left.bound.merging(right.bound, uniquingKeysWith: earliest),
+                stale: left.stale.merging(right.stale, uniquingKeysWith: earliest))
+        }
+    }
+
+    private static func staleIndices(_ method: MethodFacts, in type: TypeFacts) -> [ReentrancyFinding] {
+        guard method.effects.contains(where: { $0.kind == .bindIndex }) else { return [] }
+        var found: [ReentrancyFinding] = []
+        var seen: Set<String> = []
+        let step: (Effect, inout IndexState, Bool) -> Void = { effect, state, reporting in
+            guard effect.closureDepth == 0 else { return }
+            switch effect.kind {
+            case .bindIndex:
+                guard let local = effect.value else { return }
+                state.stale.removeValue(forKey: local)
+                state.bound[local] = KeptIndex(
+                    member: effect.subject, bindLine: effect.line, suspendLine: 0, awaited: "")
+            case .suspend:
+                for (local, kept) in state.bound {
+                    state.stale[local] = KeptIndex(
+                        member: kept.member, bindLine: kept.bindLine, suspendLine: effect.line, awaited: effect.subject)
+                }
+                state.bound.removeAll()
+            case .useIndex:
+                guard reporting, let local = effect.value, let kept = state.stale[local], kept.member == effect.subject,
+                    seen.insert("\(effect.subject)|\(effect.line)").inserted
+                else { return }
+                found.append(
+                    ReentrancyFinding(
+                        type: type.name, file: method.file, method: method.signature, property: effect.subject,
+                        kind: .staleIndex, checkLine: kept.bindLine, suspendLine: kept.suspendLine,
+                        writeLine: effect.line, awaited: kept.awaited))
+            default:
+                break
+            }
+        }
+        run(method, initial: IndexState(), join: IndexState.join, step: step)
+        return found.sorted { ($0.writeLine, $0.property) < ($1.writeLine, $1.property) }
+    }
+
+    // MARK: - Continuations stored over a pending one (roadmap 0065)
+
+    /// Whether a member's written type is a continuation, optional or not; a collection of them is not.
+    private static func isContinuation(_ property: PropertyFacts) -> Bool {
+        guard var text = property.typeText?.replacing(" ", with: "") else { return false }
+        while let last = text.last, last == "?" || last == "!" { text.removeLast() }
+        if text.hasPrefix("Optional<"), text.hasSuffix(">") { text = String(text.dropFirst(9).dropLast()) }
+        if text.hasPrefix("Swift.") { text = String(text.dropFirst(6)) }
+        return text.hasPrefix("CheckedContinuation<") || text.hasPrefix("UnsafeContinuation<")
+    }
+
+    /// A store of a non-nil value into a continuation member that no path from the method's entry checks or resumes
+    /// first. Closures count here: the store is usually in the `with…Continuation` closure, which runs at once.
+    private static func continuationOverwrites(in type: TypeFacts) -> [ReentrancyFinding] {
+        let members = Set(type.properties.filter { $0.isMutable && !$0.isStatic && isContinuation($0) }.map(\.name))
+        guard !members.isEmpty else { return [] }
+        var found: [ReentrancyFinding] = []
+        for method in type.methods where method.name != "init" && !method.isStatic {
+            guard method.effects.contains(where: { $0.kind == .write && members.contains($0.subject) }) else {
+                continue
+            }
+            var seen: Set<String> = []
+            // The members known to hold nothing that is pending: checked, resumed or set to nil on every path.
+            let step: (Effect, inout Set<String>, Bool) -> Void = { effect, settled, reporting in
+                guard members.contains(effect.subject) else { return }
+                switch effect.kind {
+                case .read where effect.isCheck:
+                    settled.insert(effect.subject)
+                case .resume:
+                    settled.insert(effect.subject)
+                case .write where effect.value == "nil":
+                    settled.insert(effect.subject)
+                case .write:
+                    if reporting, !settled.contains(effect.subject),
+                        seen.insert("\(effect.subject)|\(effect.line)").inserted
+                    {
+                        found.append(
+                            ReentrancyFinding(
+                                type: type.name, file: method.file, method: method.signature,
+                                property: effect.subject, kind: .continuationOverwrite, checkLine: effect.line,
+                                suspendLine: effect.line, writeLine: effect.line, awaited: ""))
+                    }
+                    settled.remove(effect.subject)
+                default:
+                    break
+                }
+            }
+            run(method, initial: Set<String>(), join: { $0.intersection($1) }, step: step)
+        }
+        return found.sorted { ($0.writeLine, $0.property) < ($1.writeLine, $1.property) }
+    }
+
+    /// Runs `step` over a method's effects along its control-flow graph, then once more reporting, or in source
+    /// order when the facts have no graph.
+    private static func run<State: Equatable>(
+        _ method: MethodFacts, initial: State, join: @escaping (State, State) -> State,
+        step: (Effect, inout State, Bool) -> Void
+    ) {
+        guard let flow = method.flow else {
+            var state = initial
+            for effect in method.effects { step(effect, &state, true) }
+            return
+        }
+        let byNode = effectsByNode(method, count: flow.count)
+        let entries = FlowSolver.solve(flow, initial: initial, join: join) { node, state in
+            var next = state
+            for effect in byNode[node] { step(effect, &next, false) }
+            return next
+        }
+        for (node, entry) in entries.enumerated() {
+            guard var state = entry else { continue }
+            for effect in byNode[node] { step(effect, &state, true) }
+        }
     }
 
     // MARK: - Lock gaps
