@@ -59,7 +59,7 @@ public enum TLAModule {
         }
         guard !variables.isEmpty else { return nil }
         let byName = Dictionary(uniqueKeysWithValues: variables.map { ($0.name, $0) })
-        // The model's invariants are about a check and a write; an index or a continuation has no variable in it.
+        // The model's invariants are about a check and a write; an index has no variable in it.
         let findings = ReentrancyAnalysis.findings(in: facts).filter {
             $0.type == type.name && [.await, .claimedAwait, .lockGap].contains($0.kind)
         }

@@ -354,14 +354,6 @@ final class BodyEffectCollector: SyntaxVisitor {
             return .skipChildren
         }
         if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
-            access.declName.baseName.text == "resume", let root = rootMember(of: base)
-        {
-            walk(base)
-            walkArguments(of: node)
-            record(.resume, node, root)
-            return .skipChildren
-        }
-        if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
             Self.mutatingMembers.contains(access.declName.baseName.text), let root = rootMember(of: base)
         {
             walk(base)

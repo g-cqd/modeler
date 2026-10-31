@@ -5,13 +5,12 @@ public enum RuleID: String, CaseIterable, Codable, Sendable {
     case reentrancy
     case lockGap = "lock-gap"
     case staleIndex = "stale-index"
-    case continuationOverwrite = "continuation-overwrite"
 
-    /// The two rules whose finding traps or never resumes a caller are errors; the interleavings are warnings.
+    /// A finding that traps is an error; the interleavings are warnings.
     public var defaultSeverity: Severity {
         switch self {
         case .reentrancy, .lockGap: .warning
-        case .staleIndex, .continuationOverwrite: .error
+        case .staleIndex: .error
         }
     }
 
@@ -24,8 +23,6 @@ public enum RuleID: String, CaseIterable, Codable, Sendable {
             "A method checks a member and writes it without one lock held across both, in a type that takes locks."
         case .staleIndex:
             "An actor method takes an index into a member collection, awaits, then uses the index on that member."
-        case .continuationOverwrite:
-            "A method stores a continuation in a member that may still hold one that was never resumed."
         }
     }
 
@@ -59,15 +56,6 @@ public enum RuleID: String, CaseIterable, Codable, Sendable {
 
             Look the index up again by identity after the `await` (`firstIndex(where: { $0.id == id })`), and leave \
             when it is gone.
-            """
-        case .continuationOverwrite:
-            """
-            A continuation must be resumed exactly once. Storing a new one in a member that may still hold an \
-            earlier one drops the earlier one: its caller never resumes, and the next resume reaches the wrong \
-            caller.
-
-            Check that the member is nil first and fail the new caller, or resume the old one before replacing it, \
-            or keep the continuations under a key of their own.
             """
         }
     }

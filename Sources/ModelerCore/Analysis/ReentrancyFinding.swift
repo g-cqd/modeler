@@ -60,7 +60,6 @@ public enum ReentrancyAnalysis {
         var found: [ReentrancyFinding] = []
         for type in facts.types {
             let mutable = Set(type.properties.filter { $0.isMutable && !$0.isStatic }.map(\.name))
-            found += continuationOverwrites(in: type)
             if type.isIsolated {
                 for method in type.methods where !method.isNonisolated && !method.isStatic {
                     let indices = staleIndices(method, in: type)
@@ -279,58 +278,6 @@ public enum ReentrancyAnalysis {
             }
         }
         run(method, initial: IndexState(), join: IndexState.join, step: step)
-        return found.sorted { ($0.writeLine, $0.property) < ($1.writeLine, $1.property) }
-    }
-
-    // MARK: - Continuations stored over a pending one (roadmap 0065)
-
-    /// Whether a member's written type is a continuation, optional or not; a collection of them is not.
-    private static func isContinuation(_ property: PropertyFacts) -> Bool {
-        guard var text = property.typeText?.replacing(" ", with: "") else { return false }
-        while let last = text.last, last == "?" || last == "!" { text.removeLast() }
-        if text.hasPrefix("Optional<"), text.hasSuffix(">") { text = String(text.dropFirst(9).dropLast()) }
-        if text.hasPrefix("Swift.") { text = String(text.dropFirst(6)) }
-        return text.hasPrefix("CheckedContinuation<") || text.hasPrefix("UnsafeContinuation<")
-    }
-
-    /// A store of a non-nil value into a continuation member that no path from the method's entry checks or resumes
-    /// first. Closures count here: the store is usually in the `with…Continuation` closure, which runs at once.
-    private static func continuationOverwrites(in type: TypeFacts) -> [ReentrancyFinding] {
-        let members = Set(type.properties.filter { $0.isMutable && !$0.isStatic && isContinuation($0) }.map(\.name))
-        guard !members.isEmpty else { return [] }
-        var found: [ReentrancyFinding] = []
-        for method in type.methods where method.name != "init" && !method.isStatic {
-            guard method.effects.contains(where: { $0.kind == .write && members.contains($0.subject) }) else {
-                continue
-            }
-            var seen: Set<String> = []
-            // The members known to hold nothing that is pending: checked, resumed or set to nil on every path.
-            let step: (Effect, inout Set<String>, Bool) -> Void = { effect, settled, reporting in
-                guard members.contains(effect.subject) else { return }
-                switch effect.kind {
-                case .read where effect.isCheck:
-                    settled.insert(effect.subject)
-                case .resume:
-                    settled.insert(effect.subject)
-                case .write where effect.value == "nil":
-                    settled.insert(effect.subject)
-                case .write:
-                    if reporting, !settled.contains(effect.subject),
-                        seen.insert("\(effect.subject)|\(effect.line)").inserted
-                    {
-                        found.append(
-                            ReentrancyFinding(
-                                type: type.name, file: method.file, method: method.signature,
-                                property: effect.subject, kind: .continuationOverwrite, checkLine: effect.line,
-                                suspendLine: effect.line, writeLine: effect.line, awaited: ""))
-                    }
-                    settled.remove(effect.subject)
-                default:
-                    break
-                }
-            }
-            run(method, initial: Set<String>(), join: { $0.intersection($1) }, step: step)
-        }
         return found.sorted { ($0.writeLine, $0.property) < ($1.writeLine, $1.property) }
     }
 
