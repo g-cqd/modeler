@@ -37,6 +37,40 @@ import Testing
         #expect(ReentrancyAnalysis.findings(in: facts).isEmpty)
     }
 
+    @Test func `a lock on a local value does not make the type one that takes locks`() {
+        let facts = modelFacts(
+            """
+            final class Converter {
+                var cache: [Int: Int] = [:]
+                func convert(_ key: Int) -> Int {
+                    let state = Box()
+                    state.value.withLock { $0 = true }
+                    if let cached = cache[key] { return cached }
+                    cache[key] = key
+                    return key
+                }
+            }
+            """)
+        #expect(ReentrancyAnalysis.findings(in: facts).isEmpty)
+    }
+
+    @Test func `a lock on a static member does`() throws {
+        let facts = modelFacts(
+            """
+            final class Converter: @unchecked Sendable {
+                static let lock = NSLock()
+                var cache: [Int: Int] = [:]
+                func convert(_ key: Int) -> Int {
+                    Self.lock.withLock { }
+                    if let cached = cache[key] { return cached }
+                    cache[key] = key
+                    return key
+                }
+            }
+            """)
+        #expect(try #require(ReentrancyAnalysis.findings(in: facts).first).kind == .lockGap)
+    }
+
     @Test func `checking again inside the second scope clears the gap`() {
         #expect(findings("lock.withLock { if ready {} }\nlock.withLock { if !ready { ready = true } }").isEmpty)
     }
