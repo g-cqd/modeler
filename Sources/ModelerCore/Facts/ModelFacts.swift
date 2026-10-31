@@ -15,7 +15,6 @@ public struct ModelFacts: Sendable {
             for declaration in file.types { grouped[declaration.name, default: []].append(declaration) }
         }
         let merged = grouped.keys.sorted().map { Self.merge(grouped[$0] ?? []) }
-        types = merged
         var lookup: [String: Int] = [:]
         for (offset, type) in merged.enumerated() {
             lookup[type.name] = offset
@@ -23,6 +22,7 @@ public struct ModelFacts: Sendable {
             if lookup[type.simpleName] == nil { lookup[type.simpleName] = offset }
         }
         index = lookup
+        types = merged.map { Self.resolvePredicates(in: $0, types: merged, index: lookup) }
     }
 
     /// The type named `name`, qualified or simple. A simple name shared by several types resolves to the first
@@ -35,6 +35,63 @@ public struct ModelFacts: Sendable {
     public func enumCases(named name: String) -> [String]? {
         guard let type = type(named: name), type.kind == .enumType else { return nil }
         return type.cases.map(\.name)
+    }
+
+    /// Replaces each guard's predicate markers (``Conditions/marker``) with the cases of the member's enum they hold
+    /// for, and drops a guard any of whose markers does not resolve: then it narrows nothing, as before.
+    private static func resolvePredicates(in type: TypeFacts, types: [TypeFacts], index: [String: Int]) -> TypeFacts {
+        let marked = type.methods.contains { method in
+            method.effects.contains { effect in effect.when.contains { $0.cases.contains(where: Conditions.isMarker) } }
+        }
+        guard marked else { return type }
+        var enums: [String: TypeFacts] = [:]
+        for property in type.properties {
+            guard let name = property.baseTypeName,
+                let offset = index[name] ?? index[String(name.split(separator: ".").last ?? "")],
+                types[offset].kind == .enumType
+            else { continue }
+            enums[property.name] = types[offset]
+        }
+        let resolve: (StateGuard) -> StateGuard? = { stateGuard in
+            guard stateGuard.cases.contains(where: Conditions.isMarker) else { return stateGuard }
+            guard let target = enums[stateGuard.property] else { return nil }
+            let all = Set(target.cases.map(\.name))
+            var cases: Set<String> = []
+            for value in stateGuard.cases {
+                if value.hasPrefix(Conditions.negated) {
+                    guard let holds = target.predicates?[String(value.dropFirst(Conditions.negated.count))] else {
+                        return nil
+                    }
+                    cases.formUnion(all.subtracting(holds))
+                } else if value.hasPrefix(Conditions.marker) {
+                    guard let holds = target.predicates?[String(value.dropFirst(Conditions.marker.count))] else {
+                        return nil
+                    }
+                    cases.formUnion(holds)
+                } else {
+                    cases.insert(value)
+                }
+            }
+            return StateGuard(property: stateGuard.property, cases: cases.sorted(), isFresh: stateGuard.isFresh)
+        }
+        let methods = type.methods.map { method in
+            MethodFacts(
+                signature: method.signature, name: method.name, file: method.file, line: method.line,
+                isAsync: method.isAsync, isThrowing: method.isThrowing, isStatic: method.isStatic,
+                isMutating: method.isMutating, isNonisolated: method.isNonisolated, attributes: method.attributes,
+                effects: method.effects.map { effect in
+                    let guards = effect.when.compactMap(resolve)
+                    guard guards != effect.when else { return effect }
+                    return Effect(
+                        kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
+                        isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks,
+                        nodes: effect.nodes)
+                }, flow: method.flow)
+        }
+        return TypeFacts(
+            name: type.name, kind: type.kind, inherited: type.inherited, attributes: type.attributes, file: type.file,
+            line: type.line, properties: type.properties, cases: type.cases, methods: methods,
+            predicates: type.predicates)
     }
 
     private static func merge(_ declarations: [TypeFacts]) -> TypeFacts {
@@ -56,7 +113,8 @@ public struct ModelFacts: Sendable {
             inherited: unique(declarations.flatMap(\.inherited)),
             attributes: unique(declarations.flatMap(\.attributes)),
             file: primary.file, line: primary.line,
-            properties: declarations.flatMap(\.properties), cases: declarations.flatMap(\.cases), methods: methods)
+            properties: declarations.flatMap(\.properties), cases: declarations.flatMap(\.cases), methods: methods,
+            predicates: Self.predicates(of: declarations))
     }
 
     private static func resolve(_ effect: Effect, members: Set<String>, functions: Set<String>, isEnum: Bool) -> Effect?
@@ -82,6 +140,13 @@ public struct ModelFacts: Sendable {
             kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
             isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks,
             nodes: effect.nodes)
+    }
+
+    private static func predicates(of declarations: [TypeFacts]) -> [String: [String]]? {
+        let all = declarations.compactMap(\.predicates).reduce(into: [String: [String]]()) {
+            $0.merge($1) { first, _ in first }
+        }
+        return all.isEmpty ? nil : all
     }
 
     private static func unique(_ values: [String]) -> [String] {

@@ -20,10 +20,14 @@ public struct TypeFacts: Codable, Sendable, Hashable {
     public let properties: [PropertyFacts]
     public let cases: [EnumCaseFacts]
     public let methods: [MethodFacts]
+    /// An enum's Boolean computed properties that test its own cases, with the cases each one holds for: `isRecording`
+    /// when its getter is `if case .recording = self { return true }; return false`. Absent when there are none.
+    public let predicates: [String: [String]]?
 
     public init(
         name: String, kind: Kind, inherited: [String], attributes: [String], file: String, line: Int,
-        properties: [PropertyFacts], cases: [EnumCaseFacts], methods: [MethodFacts]
+        properties: [PropertyFacts], cases: [EnumCaseFacts], methods: [MethodFacts],
+        predicates: [String: [String]]? = nil
     ) {
         self.name = name
         self.kind = kind
@@ -34,13 +38,14 @@ public struct TypeFacts: Codable, Sendable, Hashable {
         self.properties = properties
         self.cases = cases
         self.methods = methods
+        self.predicates = predicates
     }
 
     /// The type without its methods' control-flow graphs, as `modeler facts` prints it.
     public var withoutFlow: TypeFacts {
         TypeFacts(
             name: name, kind: kind, inherited: inherited, attributes: attributes, file: file, line: line,
-            properties: properties, cases: cases, methods: methods.map(\.withoutFlow))
+            properties: properties, cases: cases, methods: methods.map(\.withoutFlow), predicates: predicates)
     }
 
     /// The last component of ``name``.

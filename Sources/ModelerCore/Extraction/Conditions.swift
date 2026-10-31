@@ -107,7 +107,98 @@ enum Conditions {
             return (member, "false")
         }
         if let member = memberName(of: expression, locals: locals), member != "self" { return (member, "true") }
+        if let negation = expression.as(PrefixOperatorExprSyntax.self), negation.operator.text == "!",
+            let predicate = predicateMember(negation.expression, locals: locals)
+        {
+            return (predicate.member, negated + predicate.name)
+        }
+        if let predicate = predicateMember(expression, locals: locals) {
+            return (predicate.member, marker + predicate.name)
+        }
         return nil
+    }
+
+    // MARK: - Predicates of an enum
+
+    /// The prefix of a "case" that names a Boolean property of the member's type, `@isRecording`, to be resolved to
+    /// the enum's cases once every file is read (``ModelFacts``), or dropped.
+    static let marker = "@"
+    /// The prefix of a negated one, `!@isRecording`: the enum's other cases.
+    static let negated = "!@"
+
+    static func isMarker(_ value: String) -> Bool { value.hasPrefix(marker) || value.hasPrefix(negated) }
+
+    /// `member.name`, or `self.member.name`: a property read on a member, which may be a predicate of its enum.
+    private static func predicateMember(_ expression: ExprSyntax, locals: Set<String>) -> (
+        member: String, name: String
+    )? {
+        guard let access = expression.as(MemberAccessExprSyntax.self), let base = access.base,
+            let member = memberName(of: base, locals: locals), member != "self"
+        else { return nil }
+        let name = access.declName.baseName.text
+        guard let first = name.first, first.isLowercase else { return nil }
+        return (member, name)
+    }
+
+    /// The cases a Boolean getter on `self` is true for, or nil when it is not one of the recognized shapes:
+    /// `if case .a = self { return true }; return false`, `if case .a = self { true } else { false }`,
+    /// `switch self { case .a, .b: return true; default: return false }`, `self == .a || self == .b`.
+    static func predicateCases(of statements: CodeBlockItemListSyntax) -> Set<String>? {
+        let items = Array(statements).map(\.item)
+        if items.count == 1, let expression = expression(of: items[0]) { return cases(whenTrue: expression) }
+        if items.count == 2,
+            let first = items[0].as(ExpressionStmtSyntax.self)?.expression.as(IfExprSyntax.self)
+                ?? (items[0].as(ExprSyntax.self)?.as(IfExprSyntax.self)),
+            first.elseBody == nil, truth(of: first.body.statements) == true, truth(of: items[1]) == false
+        {
+            return constraints(of: first.conditions, locals: [])["self"]
+        }
+        return nil
+    }
+
+    private static func expression(of item: CodeBlockItemSyntax.Item) -> ExprSyntax? {
+        if let returned = item.as(ReturnStmtSyntax.self) { return returned.expression }
+        if let statement = item.as(ExpressionStmtSyntax.self) { return statement.expression }
+        return item.as(ExprSyntax.self)
+    }
+
+    private static func cases(whenTrue expression: ExprSyntax) -> Set<String>? {
+        if let conditional = expression.as(IfExprSyntax.self) {
+            guard case .codeBlock(let otherwise)? = conditional.elseBody,
+                truth(of: conditional.body.statements) == true, truth(of: otherwise.statements) == false
+            else { return nil }
+            return constraints(of: conditional.conditions, locals: [])["self"]
+        }
+        if let switched = expression.as(SwitchExprSyntax.self) {
+            guard switched.subject.as(DeclReferenceExprSyntax.self)?.baseName.text == "self" else { return nil }
+            var result: Set<String> = []
+            for element in switched.cases {
+                guard case .switchCase(let switchCase) = element, let value = truth(of: switchCase.statements) else {
+                    return nil
+                }
+                switch switchCase.label {
+                case .case(let label):
+                    let names = label.caseItems.flatMap { caseNames(inPattern: $0.pattern.trimmedDescription) }
+                    guard !names.isEmpty else { return nil }
+                    if value { result.formUnion(names) }
+                case .default:
+                    if value { return nil }
+                }
+            }
+            return result
+        }
+        return constraints(of: expression, locals: [])["self"]
+    }
+
+    /// The Boolean literal a one-statement block yields, `return true` or `true`.
+    private static func truth(of statements: CodeBlockItemListSyntax) -> Bool? {
+        guard statements.count == 1, let item = statements.first?.item else { return nil }
+        return truth(of: item)
+    }
+
+    private static func truth(of item: CodeBlockItemSyntax.Item) -> Bool? {
+        guard let literal = expression(of: item)?.as(BooleanLiteralExprSyntax.self) else { return nil }
+        return literal.literal.tokenKind == .keyword(.true)
     }
 
     private static func conjunction(_ elements: [ExprSyntax], locals: Set<String>) -> Constraints {
@@ -129,9 +220,21 @@ enum Conditions {
     }
 
     /// Both conditions hold, so a member constrained twice is narrowed to the intersection.
+    /// A predicate is not resolved yet, so a member constrained by one and by something else keeps the side without
+    /// it: wider than the intersection, so the model still over-approximates.
     static func merge(_ new: Constraints, into existing: inout Constraints) {
         for (member, cases) in new {
-            existing[member] = existing[member].map { $0.intersection(cases) } ?? cases
+            guard let old = existing[member] else {
+                existing[member] = cases
+                continue
+            }
+            let oldMarked = old.contains(where: isMarker)
+            let newMarked = cases.contains(where: isMarker)
+            if oldMarked || newMarked {
+                existing[member] = oldMarked && !newMarked ? cases : old
+            } else {
+                existing[member] = old.intersection(cases)
+            }
         }
     }
 
