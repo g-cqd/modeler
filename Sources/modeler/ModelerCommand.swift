@@ -38,9 +38,6 @@ struct CorpusOptions: ParsableArguments {
     func configuration(verbose: Bool = false, quiet: Bool = false) throws -> Configuration {
         func note(_ line: String) { if !quiet { write(line + "\n", to: .standardError) } }
         for deprecation in input.deprecations { note(deprecation.message(tool: ModelerTool.name)) }
-        if !input.defines.isEmpty {
-            note("\(ModelerTool.name): note: --define has no effect yet: modeler reads every #if clause")
-        }
         let resolved: (configuration: Configuration, sources: SharedConfiguration.Resolved)
         do {
             resolved = try Configuration.resolve(
@@ -52,6 +49,8 @@ struct CorpusOptions: ParsableArguments {
         }
         if verbose { for line in resolved.sources.verboseLines(tool: ModelerTool.name) { note(line) } }
         var configuration = resolved.configuration
+        // `--define` adds to the configuration's defines (ADR-0029).
+        configuration.defines = Array(Set(configuration.defines).union(input.defines)).sorted()
         if input.includeRegions != nil || input.excludeRegions != nil {
             do {
                 let given = try RegionSelection(include: input.includeRegions, exclude: input.excludeRegions)

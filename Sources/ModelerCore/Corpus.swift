@@ -60,10 +60,17 @@ public enum Corpus {
         let classification = ProjectLayout.discover(paths: paths).map(ProjectClassification.load) ?? .conventionsOnly
         let included = files.filter { configuration.models(classification.classify(SourcePath.canonical($0)).region) }
         let discovered = ContinuousClock.now
+        let conditions = configuration.conditions
+        // The facts depend on the conditions only when a define asks for them (ADR-0029).
+        let salt =
+            conditions.isRequested
+            ? "defines=\(conditions.defines.sorted());platforms=\(conditions.platforms.sorted())" : ""
         let scan = try await CorpusScanner.scan(
             paths: included, cache: cache,
-            identity: CacheIdentity.current(tool: ModelerTool.name, version: ModelerTool.version)
-        ) { path, bytes in FactsExtractor.extract(bytes: bytes, path: path, classification: classification) }
+            identity: CacheIdentity.current(tool: ModelerTool.name, version: ModelerTool.version), salt: salt
+        ) { path, bytes in
+            FactsExtractor.extract(bytes: bytes, path: path, classification: classification, conditions: conditions)
+        }
         var kept: [FileFacts] = []
         var unreadable: [String: String] = [:]
         var degraded: [String: String] = [:]
