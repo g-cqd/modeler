@@ -46,6 +46,14 @@ public struct ReentrancyFinding: Codable, Sendable, Hashable {
 /// joins them, a loop carries a check and an `await` into its next iteration, and a write after the check and before
 /// the `await` is a claim. Facts without a graph fall back to source order. A write in a closure, and an `await` in
 /// one, are ignored, since a closure runs elsewhere.
+///
+/// After the `await`, these check a member again (analyzerkit roadmap 0062):
+/// - a read of it in a condition, or a call in a condition to a method of the type that reads it;
+/// - a check of a token that this method wrote before, when every other method that writes the member writes the
+///   token too, as a generation counter does;
+/// - a check of `Task.isCancelled`, or `try Task.checkCancellation()`, when there is another method that writes the
+///   member and each one cancels a task that a member holds. A second call of the same method is not cancelled by
+///   them, and is not considered.
 public enum ReentrancyAnalysis {
     /// - Complexity: O(*e* · *h*) per method, for *e* graph edges and a state of height *h*.
     public static func findings(in facts: ModelFacts) -> [ReentrancyFinding] {
@@ -87,6 +95,8 @@ public enum ReentrancyAnalysis {
     private struct AwaitState: Equatable {
         /// Members checked since the last `await`, with the line of the check.
         var checked: [String: Int] = [:]
+        /// Members this method wrote on every path so far: the tokens a later check can compare.
+        var written: Set<String> = []
         /// Checked members written since their check and before any `await`, on every path, with the write's line.
         var claimed: [String: Int] = [:]
         /// Members checked before an `await` and neither checked nor written since.
@@ -98,18 +108,27 @@ public enum ReentrancyAnalysis {
             joined.claimed = left.claimed.filter { right.claimed[$0.key] != nil }
                 .merging(right.claimed.filter { left.claimed[$0.key] != nil }, uniquingKeysWith: min)
             joined.stale = left.stale.merging(right.stale, uniquingKeysWith: Stale.preferred)
+            joined.written = left.written.intersection(right.written)
             return joined
         }
     }
 
     private static func awaits(_ method: MethodFacts, in type: TypeFacts, mutable: Set<String>) -> [ReentrancyFinding] {
-        // A claim is a hazard only when another method can write the member while this one is suspended.
-        let writers: (String) -> [String] = { property in
+        let writerMethods: (String) -> [MethodFacts] = { property in
             type.methods.filter { other in
                 other.signature != method.signature && other.name != "init" && other.name != "deinit"
                     && other.effects.contains { $0.kind == .write && $0.subject == property }
-            }.map(\.signature).sorted()
+            }
         }
+        // A claim is a hazard only when another method can write the member while this one is suspended.
+        let writers: (String) -> [String] = { writerMethods($0).map(\.signature).sorted() }
+        // What a call in a condition reads, through every method of that name.
+        var readsByName: [String: Set<String>] = [:]
+        for other in type.methods {
+            let reads = other.effects.filter { $0.kind == .read && $0.closureDepth == 0 }.map(\.subject)
+            readsByName[other.name, default: []].formUnion(reads)
+        }
+        let cancellation = BodyEffectCollector.cancellation
         var found: [ReentrancyFinding] = []
         var seen: Set<String> = []
         let report: (Effect, Stale) -> Void = { write, stale in
@@ -129,13 +148,38 @@ public enum ReentrancyAnalysis {
                     awaited: stale.awaited, claimLine: kind == .claimedAwait ? stale.claimLine : nil,
                     writers: others))
         }
+        let checkAgain: (String, Int, inout AwaitState) -> Void = { property, line, state in
+            state.stale.removeValue(forKey: property)
+            state.claimed.removeValue(forKey: property)
+            state.checked[property] = line
+        }
+        // The stale members that a check of `subject` re-validates besides `subject` itself.
+        let revalidated: (String, AwaitState) -> [String] = { subject, state in
+            if subject == cancellation {
+                return state.stale.keys.filter { property in
+                    let others = writerMethods(property)
+                    return !others.isEmpty && others.allSatisfy { $0.effects.contains { $0.kind == .cancel } }
+                }
+            }
+            guard state.written.contains(subject) else { return [] }
+            return state.stale.keys.filter { property in
+                property != subject
+                    && writerMethods(property).allSatisfy {
+                        $0.effects.contains { $0.kind == .write && $0.subject == subject }
+                    }
+            }
+        }
+        let check: (String, Int, inout AwaitState) -> Void = { subject, line, state in
+            for property in revalidated(subject, state) { checkAgain(property, line, &state) }
+            if mutable.contains(subject) { checkAgain(subject, line, &state) }
+        }
         let step: (Effect, inout AwaitState, Bool) -> Void = { effect, state, reporting in
             guard effect.closureDepth == 0 else { return }
             switch effect.kind {
-            case .read where effect.isCheck && mutable.contains(effect.subject):
-                state.stale.removeValue(forKey: effect.subject)
-                state.claimed.removeValue(forKey: effect.subject)
-                state.checked[effect.subject] = effect.line
+            case .read where effect.isCheck:
+                check(effect.subject, effect.line, &state)
+            case .call where effect.isCheck:
+                for subject in (readsByName[effect.subject] ?? []).sorted() { check(subject, effect.line, &state) }
             case .suspend:
                 for (property, line) in state.checked {
                     state.stale[property] = Stale(
@@ -150,6 +194,7 @@ public enum ReentrancyAnalysis {
                 } else if state.checked[effect.subject] != nil, state.claimed[effect.subject] == nil {
                     state.claimed[effect.subject] = effect.line
                 }
+                state.written.insert(effect.subject)
             default:
                 break
             }

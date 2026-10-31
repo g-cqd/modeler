@@ -61,6 +61,11 @@ Syntactic. `check` follows each method's control-flow graph: a check and a write
 a loop carries a check and an `await` into its next iteration, and a write between the check and the `await` claims
 the member. A claim is reported (as a claimed `reentrancy`) only when another method of the type writes the member.
 The narrowings the TLA+ model and `states` use stay positional: a narrowing lasts for the block that established it.
+After the `await`, a member is checked again by a read of it in a condition, by a condition that calls a method of the
+type that reads it (a call that is itself awaited is not a check), by a check of a token the method wrote before the
+`await` when every other writer of the member writes the token too (a generation counter), or by `Task.isCancelled` or
+`try Task.checkCancellation()` when every other writer of the member cancels a task that a member holds. A lock that a
+local or a parameter holds guards no member, so it does not make the type one that takes locks.
 `x.append(…)`-style calls count as writes only for a fixed list of mutating names. A local variable that shares a
 member's name hides the member for the whole method; `self.name` still reaches it.
 
