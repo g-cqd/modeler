@@ -178,10 +178,13 @@ import Testing
         }
     }
 
-    @Test func `define is accepted and says it has no effect yet`() throws {
-        try Self.workspace(["Sources/A.swift": Self.reentrant("A")]) { root in
-            let run = try Self.run(["check", ".", "--no-cache", "--define", "DEBUG"], in: root)
-            #expect(run.errors.contains("modeler: note: --define has no effect yet: modeler reads every #if clause"))
+    @Test func `define models only the active clauses, with no note`() throws {
+        let gated = "#if FEATURE\n" + Self.reentrant("A") + "\n#endif\n"
+        try Self.workspace(["Sources/A.swift": gated]) { root in
+            let feature = try Self.run(["check", ".", "--no-cache", "--define", "FEATURE"], in: root)
+            #expect(feature.output.contains("reentrancy") && !feature.errors.contains("no effect"))
+            let other = try Self.run(["check", ".", "--no-cache", "--define", "OTHER"], in: root)
+            #expect(!other.output.contains("reentrancy"))
         }
     }
 

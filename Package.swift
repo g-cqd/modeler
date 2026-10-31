@@ -33,7 +33,7 @@ let package = Package(
         // The project model the analyzers share: test code and generated files are not modeled.
         .package(
             url: "https://github.com/g-cqd/analyzerkit.git",
-            revision: "1b113fcc81454bd57ebc782331af781522a6eb69"
+            revision: "7cbac6c23bb10360bfe2aede87ba0db1f80e9d1e"
         ),
     ],
     targets: [
