@@ -170,4 +170,26 @@ import Testing
         #expect(m.contains("subscript_set_0(p) =="))
         #expect(m.contains("last_set_0(p) =="))
     }
+
+    @Test func `a claimed finding's monitor records the claimed value, so the method's own claim is not a change`()
+        throws
+    {
+        let source = """
+            enum Phase { case idle, preparing, running }
+            actor Session {
+                var phase: Phase = .idle
+                func start() async {
+                    guard phase == .idle else { return }
+                    phase = .preparing
+                    await warmUp()
+                    phase = .running
+                }
+                func reset() { phase = .idle }
+                func warmUp() async {}
+            }
+            """
+        let module = try model(source).module
+        #expect(module.contains("EXCEPT ![p] = <<phase'>>]"), "recorded after the claim, in the claiming step")
+        #expect(!module.contains("EXCEPT ![p] = <<phase>>]"), "not at the check, before the claim")
+    }
 }
