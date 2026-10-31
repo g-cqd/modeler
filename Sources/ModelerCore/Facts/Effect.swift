@@ -17,6 +17,13 @@ public struct Effect: Codable, Sendable, Hashable {
         case release
         /// Calls `cancel()` on the task held by the member named by ``subject``.
         case cancel
+        /// Binds the local named by ``value`` to an index into the member collection named by ``subject``.
+        case bindIndex
+        /// Uses the local named by ``value``, an index into ``subject``, in a subscript of it or a call that takes
+        /// a position (`remove(at:)`, `insert(_:at:)`, `replaceSubrange`, `swapAt`).
+        case useIndex
+        /// Calls `resume` on the continuation held by the member named by ``subject``.
+        case resume
     }
 
     public let kind: Kind
@@ -24,7 +31,7 @@ public struct Effect: Codable, Sendable, Hashable {
     public let line: Int
     public let subject: String
     /// For a write: the literal assigned, when the right-hand side is one: an enum case name (`.case`), `true`,
-    /// `false`, an integer or `nil`.
+    /// `false`, an integer or `nil`. For ``Kind/bindIndex`` and ``Kind/useIndex``: the local that holds the index.
     public let value: String?
     /// A read or a call on `self` inside the condition of an `if`, `guard`, `while`, ternary or `switch` subject, or
     /// `try Task.checkCancellation()`, which reads `Task.isCancelled` and leaves when it holds.

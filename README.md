@@ -8,7 +8,7 @@ members, and what each method body does to them, and writes:
 | `modeler classes [--type T --depth N]` | a Mermaid class diagram: types, members, conformance, inheritance, ownership |
 | `modeler states [--type T] [--output dir]` | a Mermaid state diagram for each enum-valued member the code assigns, and for each enum that assigns itself; a transition guarded before an `await` is marked `stale` |
 | `modeler tla --type T [--output dir]` | a TLA+ module and TLC configuration for one type: one action per segment between `await`s, run by `Procs` callers |
-| `modeler check` | a check of a member, then an `await` (rule `reentrancy`, actors) or a gap between `withLock` scopes (rule `lock-gap`, types that take locks), then a write of it with no new check |
+| `modeler check` | a check of a member, then an `await` (rule `reentrancy`, actors) or a gap between `withLock` scopes (rule `lock-gap`, types that take locks), then a write of it with no new check; an index into a member kept across an `await` and used on it (`stale-index`); a continuation stored in a member that may still hold one (`continuation-overwrite`) |
 | `modeler facts` | everything above as JSON (`schemaVersion` 1, sorted keys) |
 | `modeler rules [id]`, `modeler explain id` | the rules, or one explained |
 
@@ -34,6 +34,20 @@ modeler check Sources
 modeler states Sources --type Session
 modeler tla Sources --type Session --output Model && tlc -config Model/SessionModel.cfg Model/SessionModel.tla
 ```
+
+## Errors by default
+
+`stale-index` and `continuation-overwrite` are errors unless the configuration says otherwise, since what they find
+traps or never resumes a caller:
+
+- `stale-index`: a local bound from `firstIndex`, `lastIndex`, `index`, `indices`, `startIndex` or `endIndex` of a
+  member collection, or from `+`/`-` on one, then an `await`, then a subscript of that member with it, or a
+  `remove(at:)`, `insert(_:at:)`, `replaceSubrange`, `removeSubrange` or `swapAt` on it. Binding it again after the
+  `await` clears it. Actors and global-actor types, as for `reentrancy`, which does not report the same line again.
+- `continuation-overwrite`: a store of a value other than `nil` into a member typed `CheckedContinuation` or
+  `UnsafeContinuation` (optional or not) where no path from the method's entry checks the member, resumes it or sets it
+  to `nil` first. The `with…Continuation` closure counts, since it runs at once. Continuations kept in a collection are
+  not this shape. Every type.
 
 ## What the TLA+ model is
 

@@ -1,4 +1,5 @@
 import ModelerCore
+import ProjectModel
 import Testing
 
 /// `stale-index` (analyzerkit roadmap 0064): an index into a member collection, kept across an `await`, then used on it.
