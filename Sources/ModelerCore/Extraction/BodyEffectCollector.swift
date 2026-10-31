@@ -143,6 +143,9 @@ final class BodyEffectCollector: SyntaxVisitor {
             if let statement = item.item.as(GuardStmtSyntax.self), Self.exits(statement.body) {
                 apply(Conditions.constraints(of: statement.conditions, locals: locals))
             }
+            if let switched = Self.switchExpression(item.item), let narrowed = survivors(of: switched) {
+                apply(narrowed)
+            }
         }
         known = saved
         return .skipChildren
@@ -522,9 +525,41 @@ final class BodyEffectCollector: SyntaxVisitor {
         return name == "detached" && access.base?.as(DeclReferenceExprSyntax.self)?.baseName.text == "Task"
     }
 
+    private static func switchExpression(_ item: CodeBlockItemSyntax.Item) -> SwitchExprSyntax? {
+        item.as(ExpressionStmtSyntax.self)?.expression.as(SwitchExprSyntax.self)
+            ?? item.as(ExprSyntax.self)?.as(SwitchExprSyntax.self)
+    }
+
+    /// What a `switch` on a member leaves it as after the switch, when every other case leaves the scope: the cases
+    /// whose bodies do not. Nil when a `default` falls through, or no case leaves.
+    private func survivors(of node: SwitchExprSyntax) -> Conditions.Constraints? {
+        guard let subject = Conditions.memberName(of: node.subject, locals: locals) else { return nil }
+        var kept: Set<String> = []
+        var anyLeaves = false
+        for element in node.cases {
+            guard case .switchCase(let switchCase) = element else { return nil }
+            // A `break` leaves the switch, not the scope.
+            let leaves =
+                Self.exits(switchCase.statements)
+                && !(switchCase.statements.last?.item.is(BreakStmtSyntax.self) ?? false)
+            anyLeaves = anyLeaves || leaves
+            switch switchCase.label {
+            case .case(let label):
+                let names = label.caseItems.flatMap { Conditions.caseNames(inPattern: $0.pattern.trimmedDescription) }
+                guard !names.isEmpty || leaves else { return nil }
+                if !leaves { kept.formUnion(names) }
+            case .default:
+                if !leaves { return nil }
+            }
+        }
+        return anyLeaves && !kept.isEmpty ? [subject: kept] : nil
+    }
+
     /// Whether every path through `body` leaves the enclosing scope, judged by its last statement.
-    private static func exits(_ body: CodeBlockSyntax) -> Bool {
-        guard let last = body.statements.last?.item else { return false }
+    private static func exits(_ body: CodeBlockSyntax) -> Bool { exits(body.statements) }
+
+    private static func exits(_ statements: CodeBlockItemListSyntax) -> Bool {
+        guard let last = statements.last?.item else { return false }
         if last.is(ReturnStmtSyntax.self) || last.is(ThrowStmtSyntax.self) || last.is(ContinueStmtSyntax.self)
             || last.is(BreakStmtSyntax.self)
         {
