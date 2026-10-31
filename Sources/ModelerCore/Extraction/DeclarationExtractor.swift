@@ -11,6 +11,7 @@ final class DeclarationExtractor: SyntaxVisitor {
         var properties: [PropertyFacts] = []
         var cases: [EnumCaseFacts] = []
         var methods: [MethodFacts] = []
+        var predicates: [String: [String]] = [:]
     }
 
     private let path: String
@@ -60,7 +61,8 @@ final class DeclarationExtractor: SyntaxVisitor {
         finished.append(
             TypeFacts(
                 name: scope.name, kind: scope.kind, inherited: scope.inherited, attributes: scope.attributes,
-                file: path, line: scope.line, properties: scope.properties, cases: scope.cases, methods: scope.methods))
+                file: path, line: scope.line, properties: scope.properties, cases: scope.cases, methods: scope.methods,
+                predicates: scope.predicates.isEmpty ? nil : scope.predicates))
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -143,6 +145,16 @@ final class DeclarationExtractor: SyntaxVisitor {
                     line: converter.location(for: binding.positionAfterSkippingLeadingTrivia).line,
                     initialCase: initializer.flatMap(Conditions.caseLiteral),
                     initialLiteral: initializer.flatMap(Self.literalText)))
+        }
+
+        if [.enumType, .extensionType].contains(scopes[scopes.count - 1].kind) {
+            for binding in node.bindings {
+                guard let name = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
+                    binding.typeAnnotation?.type.trimmedDescription == "Bool", let getter = Self.getter(binding),
+                    let cases = Conditions.predicateCases(of: getter), !cases.isEmpty
+                else { continue }
+                scopes[scopes.count - 1].predicates[name] = cases.sorted()
+            }
         }
 
         for binding in node.bindings {
@@ -239,6 +251,18 @@ final class DeclarationExtractor: SyntaxVisitor {
     }
 
     /// A stored property has no accessor block, or only observers.
+    /// The statements of a computed property's getter: the block itself, or its `get`.
+    private static func getter(_ binding: PatternBindingSyntax) -> CodeBlockItemListSyntax? {
+        switch binding.accessorBlock?.accessors {
+        case .getter(let statements):
+            return statements
+        case .accessors(let accessors):
+            return accessors.first { $0.accessorSpecifier.text == "get" }?.body?.statements
+        case nil:
+            return nil
+        }
+    }
+
     private static func isStored(_ block: AccessorBlockSyntax?) -> Bool {
         guard let block else { return true }
         guard case .accessors(let accessors) = block.accessors else { return false }
