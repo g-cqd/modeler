@@ -208,13 +208,23 @@ public enum TLAModule {
                 continue
             }
             let f = monitor.finding
-            let isCheck = action.segment.effects.contains {
-                $0.kind == .read && $0.isCheck && $0.line == f.checkLine && $0.subject == f.property
-            }
+            // A claimed finding is about another caller's change after the claim, so its monitor starts from the value
+            // the claim wrote, in the step that wrote it; any other from the value at the check.
+            let isClaim =
+                f.claimLine.map { line in
+                    action.segment.effects.contains { $0.kind == .write && $0.line == line && $0.subject == f.property }
+                } ?? false
+            let isCheck =
+                f.claimLine == nil
+                && action.segment.effects.contains {
+                    $0.kind == .read && $0.isCheck && $0.line == f.checkLine && $0.subject == f.property
+                }
             let isWrite = action.segment.effects.contains {
                 $0.kind == .write && $0.line == f.writeLine && $0.subject == f.property
             }
-            if isCheck {
+            if isClaim {
+                body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = <<\(f.property)'>>]")
+            } else if isCheck {
                 body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = <<\(f.property)>>]")
             } else if action.isFirst {
                 body.append("/\\ chk_\(monitor.index)' = [chk_\(monitor.index) EXCEPT ![p] = <<>>]")
