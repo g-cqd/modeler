@@ -43,10 +43,6 @@ public struct Finding: Codable, Sendable, Hashable {
                 "\(function) takes an index into '\(finding.property)' at line \(finding.checkLine), awaits "
                 + "\(finding.awaited) at line \(finding.suspendLine), then uses it on '\(finding.property)'; another "
                 + "call may have moved its elements, so it may name another element or trap: look it up again"
-        case .continuationOverwrite:
-            message =
-                "\(function) stores a continuation in '\(finding.property)', which may still hold one that was not "
-                + "resumed; that caller would never resume: check that it is nil, or resume it first"
         }
     }
 

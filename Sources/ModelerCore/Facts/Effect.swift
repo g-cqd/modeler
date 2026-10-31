@@ -22,8 +22,6 @@ public struct Effect: Codable, Sendable, Hashable {
         /// Uses the local named by ``value``, an index into ``subject``, in a subscript of it or a call that takes
         /// a position (`remove(at:)`, `insert(_:at:)`, `replaceSubrange`, `swapAt`).
         case useIndex
-        /// Calls `resume` on the continuation held by the member named by ``subject``.
-        case resume
     }
 
     public let kind: Kind
