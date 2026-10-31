@@ -26,6 +26,8 @@ final class BodyEffectCollector: SyntaxVisitor {
     /// Where each effect's syntax starts, to place it in the control-flow graph.
     private var offsets: [Int] = []
     private var conditionDepth = 0
+    /// How many `await` expressions enclose the walk: a call under one is the suspension, never a predicate.
+    private var awaitDepth = 0
     private var closureDepth = 0
     private var epoch = 0
     private var known: [String: Known] = [:]
@@ -88,7 +90,12 @@ final class BodyEffectCollector: SyntaxVisitor {
         converter.location(for: node.positionAfterSkippingLeadingTrivia).line
     }
 
-    private func record(_ kind: Effect.Kind, _ node: some SyntaxProtocol, _ subject: String, value: String? = nil) {
+    /// The subject of a read of whether the current task is cancelled, which is not a member.
+    static let cancellation = "Task.isCancelled"
+
+    private func record(
+        _ kind: Effect.Kind, _ node: some SyntaxProtocol, _ subject: String, value: String? = nil, check: Bool? = nil
+    ) {
         let guards = known.map {
             StateGuard(property: $0.key, cases: $0.value.cases.sorted(), isFresh: $0.value.epoch == epoch)
         }
@@ -96,7 +103,7 @@ final class BodyEffectCollector: SyntaxVisitor {
         effects.append(
             Effect(
                 kind: kind, line: line(of: node), subject: subject, value: value,
-                isCheck: conditionDepth > 0 && kind == .read,
+                isCheck: check ?? (conditionDepth > 0 && (kind == .read || (kind == .call && awaitDepth == 0))),
                 closureDepth: closureDepth, when: guards.sorted { $0.property < $1.property }, locks: heldLocks))
     }
 
@@ -182,7 +189,9 @@ final class BodyEffectCollector: SyntaxVisitor {
     // MARK: - Expressions
 
     override func visit(_ node: AwaitExprSyntax) -> SyntaxVisitorContinueKind {
+        awaitDepth += 1
         walk(node.expression)
+        awaitDepth -= 1
         suspend(at: node, awaiting: node.expression.trimmedDescription)
         return .skipChildren
     }
@@ -222,6 +231,20 @@ final class BodyEffectCollector: SyntaxVisitor {
             return .skipChildren
         }
         if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
+            base.as(DeclReferenceExprSyntax.self)?.baseName.text == "Task",
+            access.declName.baseName.text == "checkCancellation"
+        {
+            record(.read, node, Self.cancellation, check: true)
+            return .skipChildren
+        }
+        if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
+            access.declName.baseName.text == "cancel", node.arguments.isEmpty, let root = rootMember(of: base)
+        {
+            walk(base)
+            record(.cancel, node, root)
+            return .skipChildren
+        }
+        if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
             Self.mutatingMembers.contains(access.declName.baseName.text), let root = rootMember(of: base)
         {
             walk(base)
@@ -233,6 +256,14 @@ final class BodyEffectCollector: SyntaxVisitor {
         if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
             ["withLock", "withLockIfAvailable"].contains(access.declName.baseName.text)
         {
+            // A lock that a local or a parameter holds guards values of this call alone, never a member.
+            if rootMember(of: base) == nil, let name = rootIdentifier(of: base),
+                name.hasPrefix("$") || locals.contains(name)
+            {
+                walk(base)
+                walkArguments(of: node)
+                return .skipChildren
+            }
             // The lock's name is the member it hangs from, or the receiver's text for anything else.
             let name = rootMember(of: base) ?? base.trimmedDescription
             record(.acquire, node, name)
@@ -296,7 +327,11 @@ final class BodyEffectCollector: SyntaxVisitor {
 
     override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
         guard let base = node.base else { return .skipChildren }
-        if let reference = base.as(DeclReferenceExprSyntax.self), reference.baseName.text == "self" {
+        if let reference = base.as(DeclReferenceExprSyntax.self), reference.baseName.text == "Task",
+            node.declName.baseName.text == "isCancelled"
+        {
+            record(.read, node, Self.cancellation)
+        } else if let reference = base.as(DeclReferenceExprSyntax.self), reference.baseName.text == "self" {
             record(.read, node, node.declName.baseName.text)
         } else {
             walk(base)
@@ -329,6 +364,23 @@ final class BodyEffectCollector: SyntaxVisitor {
         if let chained = expression.as(OptionalChainingExprSyntax.self) { return rootMember(of: chained.expression) }
         if let tuple = expression.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first {
             return rootMember(of: only.expression)
+        }
+        return nil
+    }
+
+    /// The identifier an expression starts from: `state` in `state.value.withLock`, `$0` in `$0.lock`.
+    private func rootIdentifier(of expression: ExprSyntax) -> String? {
+        if let reference = expression.as(DeclReferenceExprSyntax.self) { return reference.baseName.text }
+        if let access = expression.as(MemberAccessExprSyntax.self), let base = access.base {
+            return rootIdentifier(of: base)
+        }
+        if let call = expression.as(FunctionCallExprSyntax.self) { return rootIdentifier(of: call.calledExpression) }
+        if let subscripted = expression.as(SubscriptCallExprSyntax.self) {
+            return rootIdentifier(of: subscripted.calledExpression)
+        }
+        if let unwrapped = expression.as(ForceUnwrapExprSyntax.self) { return rootIdentifier(of: unwrapped.expression) }
+        if let chained = expression.as(OptionalChainingExprSyntax.self) {
+            return rootIdentifier(of: chained.expression)
         }
         return nil
     }
