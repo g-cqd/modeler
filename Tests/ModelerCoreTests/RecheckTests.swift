@@ -47,6 +47,23 @@ import Testing
             ).map(\.property) == ["phase"])
     }
 
+    @Test func `an awaited call in a condition is the suspension, not a check of what the callee reads`() {
+        #expect(
+            findings(
+                """
+                @MainActor final class A {
+                    var info = 0
+                    func download() async -> Int? { info }
+                    func f() async {
+                        if let value = await download() {
+                            info = value
+                        }
+                    }
+                }
+                """
+            ).isEmpty)
+    }
+
     // MARK: A generation token
 
     private func token(otherWriter: String) -> String {

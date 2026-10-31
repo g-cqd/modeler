@@ -15,6 +15,8 @@ public struct Effect: Codable, Sendable, Hashable {
         case acquire
         /// Leaves the scope the last `acquire` opened.
         case release
+        /// Calls `cancel()` on the task held by the member named by ``subject``.
+        case cancel
     }
 
     public let kind: Kind
@@ -24,7 +26,8 @@ public struct Effect: Codable, Sendable, Hashable {
     /// For a write: the literal assigned, when the right-hand side is one: an enum case name (`.case`), `true`,
     /// `false`, an integer or `nil`.
     public let value: String?
-    /// A read inside the condition of an `if`, `guard`, `while`, ternary or `switch` subject.
+    /// A read or a call on `self` inside the condition of an `if`, `guard`, `while`, ternary or `switch` subject, or
+    /// `try Task.checkCancellation()`, which reads `Task.isCancelled` and leaves when it holds.
     public let isCheck: Bool
     /// How many closures enclose the effect. Zero is the method's own body.
     public let closureDepth: Int
