@@ -82,4 +82,26 @@ import Testing
         let module = try #require(TLAModule.render(type: "Recorder", in: facts)).module
         #expect(module.contains("/\\ state \\in {\"paused\", \"recording\"}"))
     }
+
+    @Test func `a switch whose other cases leave narrows the member after it`() throws {
+        let facts = modelFacts(
+            """
+            actor Recorder {
+                var state: State = .idle
+                func resume() async throws {
+                    switch state {
+                    case .paused, .recording:
+                        break
+                    default:
+                        throw CancellationError()
+                    }
+                    await start()
+                    state = .idle
+                }
+                func start() async {}
+            }
+            """, Self.state)
+        let module = try #require(TLAModule.render(type: "Recorder", in: facts)).module
+        #expect(module.contains("/\\ state \\in {\"paused\", \"recording\"}"))
+    }
 }
