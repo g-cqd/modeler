@@ -50,8 +50,7 @@ public struct CheckResult: Sendable {
     /// The findings of the rules `configuration` keeps, with its severities, less those a comment suppresses.
     public init(_ facts: ModelFacts, configuration: Configuration) {
         let all = ReentrancyAnalysis.findings(in: facts).map { finding in
-            let rule: RuleID = finding.kind == .lockGap ? .lockGap : .reentrancy
-            return Finding(finding, severity: configuration.severity(of: rule))
+            Finding(finding, severity: configuration.severity(of: finding.kind.rule))
         }
         .filter { configuration.isEnabled($0.rule) }
         .sorted(by: Finding.ordered)

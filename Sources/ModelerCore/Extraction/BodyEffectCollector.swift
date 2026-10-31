@@ -20,7 +20,19 @@ final class BodyEffectCollector: SyntaxVisitor {
         "updateValue", "replaceSubrange", "reserveCapacity", "append(contentsOf:)", "enqueue", "push", "pop",
     ]
 
+    /// What makes an index into a collection: `items.firstIndex(…)`, `items.indices`, `items.startIndex`.
+    private static let indexMembers: Set<String> = [
+        "firstIndex", "lastIndex", "index", "indices", "startIndex", "endIndex",
+    ]
+    /// Mutating calls that take a position in their receiver.
+    private static let positionMembers: Set<String> = [
+        "remove", "insert", "replaceSubrange", "removeSubrange", "swapAt",
+    ]
+
     private let converter: SourceLocationConverter
+    /// Locals bound to an index into a member, by name: the member (roadmap 0064). By name, not by path: the analysis
+    /// follows the paths, this only recognizes a use.
+    private var indexLocals: [String: String] = [:]
     private let locals: Set<String>
     private(set) var effects: [Effect] = []
     /// Where each effect's syntax starts, to place it in the control-flow graph.
@@ -186,6 +198,100 @@ final class BodyEffectCollector: SyntaxVisitor {
         return .skipChildren
     }
 
+    // MARK: - Bindings
+
+    override func visit(_ node: PatternBindingSyntax) -> SyntaxVisitorContinueKind {
+        if let value = node.initializer?.value { walk(value) }
+        if let accessors = node.accessorBlock { walk(accessors) }
+        bindIndex(node.pattern, to: node.initializer?.value, at: node)
+        return .skipChildren
+    }
+
+    override func visit(_ node: OptionalBindingConditionSyntax) -> SyntaxVisitorContinueKind {
+        if let value = node.initializer?.value { walk(value) }
+        bindIndex(node.pattern, to: node.initializer?.value, at: node)
+        return .skipChildren
+    }
+
+    private func bindIndex(_ pattern: PatternSyntax, to value: ExprSyntax?, at node: some SyntaxProtocol) {
+        guard let name = pattern.as(IdentifierPatternSyntax.self)?.identifier.text, let value else { return }
+        bindIndex(name, to: value, at: node)
+    }
+
+    private func bindIndex(_ name: String, to value: ExprSyntax, at node: some SyntaxProtocol) {
+        guard let member = indexSource(of: value) else { return }
+        indexLocals[name] = member
+        record(.bindIndex, node, member, value: name)
+    }
+
+    /// The member an expression is an index into: an index member of it, a local that holds one, or arithmetic on
+    /// such a local. Nil for anything else, an element read through an index included.
+    private func indexSource(of expression: ExprSyntax) -> String? {
+        if let tried = expression.as(TryExprSyntax.self) { return indexSource(of: tried.expression) }
+        if let unwrapped = expression.as(ForceUnwrapExprSyntax.self) { return indexSource(of: unwrapped.expression) }
+        if let chained = expression.as(OptionalChainingExprSyntax.self) { return indexSource(of: chained.expression) }
+        if let tuple = expression.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first {
+            return indexSource(of: only.expression)
+        }
+        if let call = expression.as(FunctionCallExprSyntax.self),
+            let access = call.calledExpression.as(MemberAccessExprSyntax.self), let base = access.base,
+            Self.indexMembers.contains(access.declName.baseName.text)
+        {
+            return rootMember(of: base) ?? indexSource(of: base)
+        }
+        if let access = expression.as(MemberAccessExprSyntax.self), let base = access.base {
+            if Self.indexMembers.contains(access.declName.baseName.text), let root = rootMember(of: base) {
+                return root
+            }
+            // `items.indices.last`, `items.indices.first`.
+            return ["first", "last"].contains(access.declName.baseName.text) ? indexSource(of: base) : nil
+        }
+        if let reference = expression.as(DeclReferenceExprSyntax.self) { return indexLocals[reference.baseName.text] }
+        if let sequence = expression.as(SequenceExprSyntax.self) {
+            let elements = Array(sequence.elements)
+            let isArithmetic = elements.allSatisfy { element in
+                element.is(DeclReferenceExprSyntax.self) || element.is(IntegerLiteralExprSyntax.self)
+                    || ["+", "-"].contains(element.as(BinaryOperatorExprSyntax.self)?.operator.text ?? "")
+            }
+            guard isArithmetic else { return nil }
+            return elements.lazy.compactMap { $0.as(DeclReferenceExprSyntax.self) }
+                .compactMap { self.indexLocals[$0.baseName.text] }.first
+        }
+        return nil
+    }
+
+    /// Records a use of each index local into `member` that `expression` names.
+    private func recordIndexUses(in expression: some SyntaxProtocol, of member: String, at node: some SyntaxProtocol) {
+        var seen: Set<String> = []
+        for token in expression.tokens(viewMode: .sourceAccurate) {
+            guard case .identifier(let name) = token.tokenKind, indexLocals[name] == member,
+                seen.insert(name).inserted
+            else { continue }
+            record(.useIndex, node, member, value: name)
+        }
+    }
+
+    /// The subscripts on a member along an assignment target or a receiver: `items[i]`, `items[i].name`.
+    private func recordSubscriptUses(in expression: ExprSyntax) {
+        if let subscripted = expression.as(SubscriptCallExprSyntax.self) {
+            if let root = rootMember(of: subscripted.calledExpression) {
+                recordIndexUses(in: subscripted.arguments, of: root, at: subscripted)
+            }
+            recordSubscriptUses(in: subscripted.calledExpression)
+        } else if let access = expression.as(MemberAccessExprSyntax.self), let base = access.base {
+            recordSubscriptUses(in: base)
+        } else if let unwrapped = expression.as(ForceUnwrapExprSyntax.self) {
+            recordSubscriptUses(in: unwrapped.expression)
+        } else if let chained = expression.as(OptionalChainingExprSyntax.self) {
+            recordSubscriptUses(in: chained.expression)
+        }
+    }
+
+    override func visit(_ node: SubscriptCallExprSyntax) -> SyntaxVisitorContinueKind {
+        if let root = rootMember(of: node.calledExpression) { recordIndexUses(in: node.arguments, of: root, at: node) }
+        return .visitChildren
+    }
+
     // MARK: - Expressions
 
     override func visit(_ node: AwaitExprSyntax) -> SyntaxVisitorContinueKind {
@@ -245,10 +351,21 @@ final class BodyEffectCollector: SyntaxVisitor {
             return .skipChildren
         }
         if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
+            access.declName.baseName.text == "resume", let root = rootMember(of: base)
+        {
+            walk(base)
+            walkArguments(of: node)
+            record(.resume, node, root)
+            return .skipChildren
+        }
+        if let access = callee.as(MemberAccessExprSyntax.self), let base = access.base,
             Self.mutatingMembers.contains(access.declName.baseName.text), let root = rootMember(of: base)
         {
             walk(base)
             walkArguments(of: node)
+            if Self.positionMembers.contains(access.declName.baseName.text) {
+                recordIndexUses(in: node.arguments, of: root, at: node)
+            }
             record(.write, node, root)
             known.removeValue(forKey: root)
             return .skipChildren
@@ -292,10 +409,16 @@ final class BodyEffectCollector: SyntaxVisitor {
         }
         for element in elements[2...] { walk(element) }
         let target = elements[0]
+        if elements.count == 3, elements[1].is(AssignmentExprSyntax.self),
+            let local = target.as(DeclReferenceExprSyntax.self)?.baseName.text, locals.contains(local)
+        {
+            bindIndex(local, to: elements[2], at: target)
+        }
         guard let root = rootMember(of: target) else {
             walk(target)
             return .skipChildren
         }
+        recordSubscriptUses(in: target)
         let isPlainAssignment = elements[1].is(AssignmentExprSyntax.self)
         if !isPlainAssignment { record(.read, target, root) }
         let value = elements.count == 3 && isPlainAssignment ? Conditions.literalValue(elements[2]) : nil

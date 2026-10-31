@@ -1,4 +1,5 @@
 import ModelerCore
+import ProjectModel
 import Testing
 
 /// `continuation-overwrite` (analyzerkit roadmap 0065): a stored continuation replaced while it may still be pending.

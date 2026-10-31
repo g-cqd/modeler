@@ -69,7 +69,7 @@ public struct ModelFacts: Sendable {
         switch effect.kind {
         case .read:
             guard known(effect.subject) || effect.subject == BodyEffectCollector.cancellation else { return nil }
-        case .write, .cancel:
+        case .write, .cancel, .bindIndex, .useIndex, .resume:
             guard known(effect.subject) else { return nil }
         case .call:
             guard functions.contains(effect.subject) else { return nil }
