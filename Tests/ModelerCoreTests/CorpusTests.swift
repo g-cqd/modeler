@@ -26,8 +26,10 @@ import Testing
             let plain = try await Corpus.load(paths: [root.path], cache: nil)
             #expect(plain.facts.types.map(\.name) == ["A"])
             let everything = try await Corpus.load(
-                paths: [root.path], cache: nil,
-                configuration: Configuration(regions: RegionSelection(include: [.test, .generated], exclude: [])))
+                paths: [root.path],
+                cache: nil,
+                configuration: Configuration(regions: RegionSelection(include: [.test, .generated], exclude: []))
+            )
             #expect(everything.facts.types.map(\.name) == ["A", "ATests", "B"])
         }
     }
@@ -48,7 +50,8 @@ import Testing
         try await scratch { root in
             try write("A.swift", "struct A {}", in: root)
             let report = try await Corpus.load(
-                paths: [root.appending(path: "A.swift").path, root.appending(path: "Missing.swift").path], cache: nil
+                paths: [root.appending(path: "A.swift").path, root.appending(path: "Missing.swift").path],
+                cache: nil
             )
             #expect(report.facts.types.map(\.name) == ["A"])
             #expect(report.unreadable.keys.contains { $0.hasSuffix("Missing.swift") })

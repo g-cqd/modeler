@@ -7,7 +7,8 @@ import Testing
 @Suite struct InterleavingFlowTests {
     private func actor(_ body: String, extra: String = "") -> [ReentrancyFinding] {
         ReentrancyAnalysis.findings(
-            in: modelFacts("actor A {\n var phase = 0\n func f() async {\n\(body)\n }\n\(extra)\n}"))
+            in: modelFacts("actor A {\n var phase = 0\n func f() async {\n\(body)\n }\n\(extra)\n}")
+        )
     }
 
     private func lines(_ found: [ReentrancyFinding]) -> [String] {
@@ -21,7 +22,9 @@ import Testing
 
     @Test func `a claim before the await is reported as a claim when another method writes the member`() throws {
         let found = actor(
-            "guard phase == 0 else { return }\nphase = 1\nawait g()\nphase = 2", extra: "func reset() { phase = 0 }")
+            "guard phase == 0 else { return }\nphase = 1\nawait g()\nphase = 2",
+            extra: "func reset() { phase = 0 }"
+        )
         let only = try #require(found.first)
         #expect(found.count == 1)
         #expect(only.kind == .claimedAwait && lines(found) == ["4-6-7"] && only.claimLine == 5)
@@ -56,7 +59,8 @@ import Testing
                     if fast { lock.withLock { if ready {} } } else { lock.withLock { ready = true } }
                 }
             }
-            """)
+            """
+        )
         #expect(ReentrancyAnalysis.findings(in: facts).isEmpty)
     }
 

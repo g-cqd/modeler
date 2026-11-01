@@ -22,9 +22,17 @@ public struct ReentrancyFinding: Codable, Sendable, Hashable {
     public let writers: [String]?
 
     public init(
-        type: String, file: String, method: String, property: String, kind: InterleavingKind = .await,
-        checkLine: Int, suspendLine: Int, writeLine: Int,
-        awaited: String, claimLine: Int? = nil, writers: [String]? = nil
+        type: String,
+        file: String,
+        method: String,
+        property: String,
+        kind: InterleavingKind = .await,
+        checkLine: Int,
+        suspendLine: Int,
+        writeLine: Int,
+        awaited: String,
+        claimLine: Int? = nil,
+        writers: [String]? = nil
     ) {
         self.type = type
         self.file = file
@@ -149,10 +157,19 @@ public enum ReentrancyAnalysis {
             }
             found.append(
                 ReentrancyFinding(
-                    type: type.name, file: method.file, method: method.signature, property: write.subject,
-                    kind: kind, checkLine: stale.checkLine, suspendLine: stale.suspendLine, writeLine: write.line,
-                    awaited: stale.awaited, claimLine: kind == .claimedAwait ? stale.claimLine : nil,
-                    writers: others))
+                    type: type.name,
+                    file: method.file,
+                    method: method.signature,
+                    property: write.subject,
+                    kind: kind,
+                    checkLine: stale.checkLine,
+                    suspendLine: stale.suspendLine,
+                    writeLine: write.line,
+                    awaited: stale.awaited,
+                    claimLine: kind == .claimedAwait ? stale.claimLine : nil,
+                    writers: others
+                )
+            )
         }
         let checkAgain: (String, Int, inout AwaitState) -> Void = { property, line, state in
             state.stale.removeValue(forKey: property)
@@ -189,8 +206,11 @@ public enum ReentrancyAnalysis {
             case .suspend:
                 for (property, line) in state.checked {
                     state.stale[property] = Stale(
-                        checkLine: line, suspendLine: effect.line, awaited: effect.subject,
-                        claimLine: state.claimed[property])
+                        checkLine: line,
+                        suspendLine: effect.line,
+                        awaited: effect.subject,
+                        claimLine: state.claimed[property]
+                    )
                 }
                 state.checked.removeAll()
                 state.claimed.removeAll()
@@ -242,7 +262,8 @@ public enum ReentrancyAnalysis {
             let earliest: (KeptIndex, KeptIndex) -> KeptIndex = { $0.bindLine <= $1.bindLine ? $0 : $1 }
             return IndexState(
                 bound: left.bound.merging(right.bound, uniquingKeysWith: earliest),
-                stale: left.stale.merging(right.stale, uniquingKeysWith: earliest))
+                stale: left.stale.merging(right.stale, uniquingKeysWith: earliest)
+            )
         }
     }
 
@@ -257,11 +278,19 @@ public enum ReentrancyAnalysis {
                 guard let local = effect.value else { return }
                 state.stale.removeValue(forKey: local)
                 state.bound[local] = KeptIndex(
-                    member: effect.subject, bindLine: effect.line, suspendLine: 0, awaited: "")
+                    member: effect.subject,
+                    bindLine: effect.line,
+                    suspendLine: 0,
+                    awaited: ""
+                )
             case .suspend:
                 for (local, kept) in state.bound {
                     state.stale[local] = KeptIndex(
-                        member: kept.member, bindLine: kept.bindLine, suspendLine: effect.line, awaited: effect.subject)
+                        member: kept.member,
+                        bindLine: kept.bindLine,
+                        suspendLine: effect.line,
+                        awaited: effect.subject
+                    )
                 }
                 state.bound.removeAll()
             case .useIndex:
@@ -270,9 +299,17 @@ public enum ReentrancyAnalysis {
                 else { return }
                 found.append(
                     ReentrancyFinding(
-                        type: type.name, file: method.file, method: method.signature, property: effect.subject,
-                        kind: .staleIndex, checkLine: kept.bindLine, suspendLine: kept.suspendLine,
-                        writeLine: effect.line, awaited: kept.awaited))
+                        type: type.name,
+                        file: method.file,
+                        method: method.signature,
+                        property: effect.subject,
+                        kind: .staleIndex,
+                        checkLine: kept.bindLine,
+                        suspendLine: kept.suspendLine,
+                        writeLine: effect.line,
+                        awaited: kept.awaited
+                    )
+                )
             default:
                 break
             }
@@ -284,7 +321,9 @@ public enum ReentrancyAnalysis {
     /// Runs `step` over a method's effects along its control-flow graph, then once more reporting, or in source
     /// order when the facts have no graph.
     private static func run<State: Equatable>(
-        _ method: MethodFacts, initial: State, join: @escaping (State, State) -> State,
+        _ method: MethodFacts,
+        initial: State,
+        join: @escaping (State, State) -> State,
         step: (Effect, inout State, Bool) -> Void
     ) {
         guard let flow = method.flow else {
@@ -339,9 +378,17 @@ public enum ReentrancyAnalysis {
                 else { return }
                 found.append(
                     ReentrancyFinding(
-                        type: type.name, file: method.file, method: method.signature, property: effect.subject,
-                        kind: .lockGap, checkLine: check.line, suspendLine: check.line, writeLine: effect.line,
-                        awaited: "the lock is not held across the check and the write"))
+                        type: type.name,
+                        file: method.file,
+                        method: method.signature,
+                        property: effect.subject,
+                        kind: .lockGap,
+                        checkLine: check.line,
+                        suspendLine: check.line,
+                        writeLine: effect.line,
+                        awaited: "the lock is not held across the check and the write"
+                    )
+                )
             default:
                 break
             }
@@ -384,7 +431,10 @@ public enum ReentrancyAnalysis {
 /// node's entry, nil where control does not reach, with a bound of 64 visits per node.
 enum FlowSolver {
     static func solve<State: Equatable>(
-        _ successors: [[Int]], initial: State, join: (State, State) -> State, transfer: (Int, State) -> State
+        _ successors: [[Int]],
+        initial: State,
+        join: (State, State) -> State,
+        transfer: (Int, State) -> State
     ) -> [State?] {
         guard !successors.isEmpty else { return [] }
         var entries = [State?](repeating: nil, count: successors.count)

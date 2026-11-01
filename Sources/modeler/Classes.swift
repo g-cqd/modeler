@@ -4,7 +4,8 @@ import SystemPackage
 
 struct Classes: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "A Mermaid class diagram: types, members, conformance and ownership.")
+        abstract: "A Mermaid class diagram: types, members, conformance and ownership."
+    )
 
     @OptionGroup var corpus: CorpusOptions
 

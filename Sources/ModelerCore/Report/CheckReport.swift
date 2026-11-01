@@ -29,29 +29,53 @@ public enum CheckReport {
 
     /// The findings rendered in `format`; paths relative to `relativeTo` when given, fingerprints relative to `root`.
     public static func render(
-        _ findings: [Finding], format: Format, root: String?, relativeTo: String?, context: Context
+        _ findings: [Finding],
+        format: Format,
+        root: String?,
+        relativeTo: String?,
+        context: Context
     ) throws -> String {
         func shown(_ path: String) -> String { relativeTo.map { RepositoryRoot.relativize(path, to: $0) } ?? path }
         switch format {
         case .xcode:
             return findings.map { finding in
                 XcodeDiagnostic.line(
-                    path: shown(finding.path), line: finding.line, column: finding.column,
-                    severity: finding.severity.rawValue, rule: finding.rule.rawValue, message: finding.message) + "\n"
+                    path: shown(finding.path),
+                    line: finding.line,
+                    column: finding.column,
+                    severity: finding.severity.rawValue,
+                    rule: finding.rule.rawValue,
+                    message: finding.message
+                ) + "\n"
             }.joined()
         case .json:
             let report = JSONReport(
-                fileCount: context.fileCount, cacheHits: context.cacheHits, suppressed: context.suppressed,
+                fileCount: context.fileCount,
+                cacheHits: context.cacheHits,
+                suppressed: context.suppressed,
                 baselined: context.baselined,
                 findings: findings.map { finding in
                     JSONFinding(
-                        rule: finding.rule.rawValue, severity: finding.severity.rawValue, path: shown(finding.path),
-                        line: finding.line, column: finding.column, function: finding.function,
-                        member: finding.member, message: finding.message, fingerprint: finding.fingerprint(root: root))
-                })
+                        rule: finding.rule.rawValue,
+                        severity: finding.severity.rawValue,
+                        path: shown(finding.path),
+                        line: finding.line,
+                        column: finding.column,
+                        function: finding.function,
+                        member: finding.member,
+                        message: finding.message,
+                        fingerprint: finding.fingerprint(root: root)
+                    )
+                }
+            )
             let envelope = ReportEnvelope(
-                report, tool: ModelerTool.name, version: ModelerTool.version, runNotes: context.runNotes,
-                skippedFiles: context.skippedFiles, timings: context.timings)
+                report,
+                tool: ModelerTool.name,
+                version: ModelerTool.version,
+                runNotes: context.runNotes,
+                skippedFiles: context.skippedFiles,
+                timings: context.timings
+            )
             return try encode(envelope)
         case .sarif:
             return try sarif(findings, root: relativeTo ?? root)
@@ -82,24 +106,34 @@ public enum CheckReport {
         let results = findings.map { finding in
             let path = root.map { RepositoryRoot.relativize(finding.path, to: $0) } ?? finding.path
             return Sarif.Result(
-                ruleId: finding.rule.rawValue, level: finding.severity.rawValue, message: Sarif.Text(finding.message),
+                ruleId: finding.rule.rawValue,
+                level: finding.severity.rawValue,
+                message: Sarif.Text(finding.message),
                 locations: [
                     Sarif.Location(
                         physicalLocation: Sarif.PhysicalLocation(
                             artifactLocation: Sarif.ArtifactLocation(path: path, root: root),
-                            region: Sarif.Region(startLine: finding.line, startColumn: finding.column)))
+                            region: Sarif.Region(startLine: finding.line, startColumn: finding.column)
+                        )
+                    )
                 ],
-                partialFingerprints: ["modeler/v1": finding.fingerprint(root: root)])
+                partialFingerprints: ["modeler/v1": finding.fingerprint(root: root)]
+            )
         }
         let rules = RuleID.allCases.map { rule in
             Sarif.Rule(
-                id: rule.rawValue, shortDescription: Sarif.Text(rule.summary),
+                id: rule.rawValue,
+                shortDescription: Sarif.Text(rule.summary),
                 fullDescription: Sarif.Text(rule.explanation),
-                defaultConfiguration: ["level": rule.defaultSeverity.rawValue])
+                defaultConfiguration: ["level": rule.defaultSeverity.rawValue]
+            )
         }
         let driver = Sarif.Driver(
-            name: ModelerTool.name, version: ModelerTool.version, informationUri: ModelerTool.informationURI,
-            rules: rules)
+            name: ModelerTool.name,
+            version: ModelerTool.version,
+            informationUri: ModelerTool.informationURI,
+            rules: rules
+        )
         let log = Sarif.Log(runs: [
             Sarif.Run(tool: Sarif.Tool(driver: driver), invocations: nil, root: root, results: results)
         ])

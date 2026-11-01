@@ -13,7 +13,9 @@ import Testing
                         \(body)
                     }
                 }
-                """))
+                """
+            )
+        )
     }
 
     @Test func `a check, an await and a write of the same member is reported with all three lines`() throws {
@@ -42,7 +44,8 @@ import Testing
         #expect(findings("guard phase == 0 else { return }\nawait g()\nphase = 1", header: "final class A").isEmpty)
         #expect(
             findings("guard phase == 0 else { return }\nawait g()\nphase = 1", header: "@MainActor final class A").count
-                == 1)
+                == 1
+        )
     }
 
     @Test func `an await or write inside a closure is ignored`() {

@@ -39,7 +39,9 @@ struct Check: AsyncParsableCommand {
             for name in wanted {
                 guard let rule = RuleID(rawValue: name) else {
                     write(
-                        "\(ModelerTool.name): no rule named \(name); `modeler rules` lists them\n", to: .standardError)
+                        "\(ModelerTool.name): no rule named \(name); `modeler rules` lists them\n",
+                        to: .standardError
+                    )
                     throw ExitCode(ExitStatus.usage.rawValue)
                 }
                 ids.append(rule)
@@ -61,9 +63,16 @@ struct Check: AsyncParsableCommand {
             findings = inScope
             if let newSince {
                 baselineMatchesNothing = NewSince.matchesNothing(
-                    inScope + outOfScope, in: newSince.fingerprints, fingerprint: fingerprint)
+                    inScope + outOfScope,
+                    in: newSince.fingerprints,
+                    fingerprint: fingerprint
+                )
                 let promotion = NewSince.promote(
-                    inScope: inScope, outOfScope: outOfScope, notIn: newSince.fingerprints, fingerprint: fingerprint)
+                    inScope: inScope,
+                    outOfScope: outOfScope,
+                    notIn: newSince.fingerprints,
+                    fingerprint: fingerprint
+                )
                 findings = promotion.reported.sorted(by: Finding.ordered)
                 promoted = promotion.promoted
             }
@@ -85,8 +94,12 @@ struct Check: AsyncParsableCommand {
         func shown(_ path: String) -> String { relative.map { RepositoryRoot.relativize(path, to: $0) } ?? path }
         notes += loaded.classificationIssues.map { issue in
             RunNote(
-                code: issue.code, severity: "note", message: issue.message, paths: issue.paths.map(shown),
-                verbose: output.verbose)
+                code: issue.code,
+                severity: "note",
+                message: issue.message,
+                paths: issue.paths.map(shown),
+                verbose: output.verbose
+            )
         }
         if let path = output.reportNewSince {
             // Counted after --baseline, so the note states what the report shows.
@@ -109,9 +122,14 @@ struct Check: AsyncParsableCommand {
 
         write(
             try CheckReport.render(
-                findings, format: CheckReport.Format(rawValue: output.format.rawValue) ?? .xcode, root: root,
-                relativeTo: relative, context: context),
-            to: .standardOutput)
+                findings,
+                format: CheckReport.Format(rawValue: output.format.rawValue) ?? .xcode,
+                root: root,
+                relativeTo: relative,
+                context: context
+            ),
+            to: .standardOutput
+        )
         if output.timings {
             for (phase, seconds) in timings.sorted(by: { $0.key < $1.key }) {
                 note("\(ModelerTool.name): timing: \(phase) \(Int((seconds * 1000).rounded())) ms")
@@ -121,7 +139,8 @@ struct Check: AsyncParsableCommand {
         let warnings = findings.count { $0.severity == .warning }
         note(
             "\(ModelerTool.name): \(findings.count) finding(s) (\(errors) error(s), \(warnings) warning(s)); "
-                + "\(checked.suppressed.count) suppressed, \(context.baselined) baselined")
+                + "\(checked.suppressed.count) suppressed, \(context.baselined) baselined"
+        )
         // ADR-0018: an error fails the run, a warning only under --strict, a note never.
         if RunOutcome.fails(findings.map(\.severity), strict: output.strict) {
             throw ExitCode(ExitStatus.findings.rawValue)

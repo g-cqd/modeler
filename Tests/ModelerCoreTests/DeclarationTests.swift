@@ -11,7 +11,8 @@ import Testing
             }
             actor Counter {}
             protocol Runner {}
-            """)
+            """
+        )
         let model = try #require(facts.type(named: "Model"))
         #expect(model.kind == .classType)
         #expect(model.inherited == ["Sendable", "Equatable"])
@@ -36,7 +37,8 @@ import Testing
                 var observed = 1 { didSet {} }
                 lazy var cache = [Int]()
             }
-            """)
+            """
+        )
         let properties = try #require(facts.type(named: "S")).properties
         #expect(properties.map(\.name) == ["count", "name", "shared", "state", "observed", "cache"])
         #expect(properties.first { $0.name == "count" }?.initialLiteral == "0")
@@ -53,7 +55,8 @@ import Testing
             cases == [
                 EnumCaseFacts(name: "a", payload: []), EnumCaseFacts(name: "b", payload: ["Int", "String"]),
                 EnumCaseFacts(name: "c", payload: ["Bool"]),
-            ])
+            ]
+        )
         #expect(facts.enumCases(named: "E") == ["a", "b", "c"])
         #expect(facts.enumCases(named: "Missing") == nil)
     }
@@ -68,7 +71,8 @@ import Testing
                 init(seed: Int) {}
             }
             struct S { mutating func bump() {} }
-            """)
+            """
+        )
         let run = try #require(method("run", of: "A", in: facts))
         #expect(run.signature == "run(count:_:)" && run.isAsync && run.isThrowing)
         #expect(method("peek", of: "A", in: facts)?.isNonisolated == true)
@@ -80,7 +84,8 @@ import Testing
     @Test func `an extension in another file merges into its type and resolves its members`() throws {
         let facts = modelFacts(
             "actor A { var state: Int = 0 }",
-            "extension A { func bump() { state = 1; other = 2 } }")
+            "extension A { func bump() { state = 1; other = 2 } }"
+        )
         let bump = try #require(method("bump", of: "A", in: facts))
         #expect(bump.effects.map(\.summary) == ["write state"], "a name that is no member is dropped")
         #expect(facts.types.count == 1)

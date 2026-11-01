@@ -4,7 +4,8 @@ import SystemPackage
 
 struct States: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Mermaid state diagrams of every enum-valued member the code assigns.")
+        abstract: "Mermaid state diagrams of every enum-valued member the code assigns."
+    )
 
     @OptionGroup var corpus: CorpusOptions
 

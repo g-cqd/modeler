@@ -43,8 +43,10 @@ import Testing
         let err = errors.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return Run(
-            status: process.terminationStatus, output: String(decoding: out, as: UTF8.self),
-            errors: String(decoding: err, as: UTF8.self))
+            status: process.terminationStatus,
+            output: String(decoding: out, as: UTF8.self),
+            errors: String(decoding: err, as: UTF8.self)
+        )
     }
 
     private static func workspace(_ files: [String: String], _ body: (URL) throws -> Void) throws {
@@ -56,7 +58,9 @@ import Testing
         for (name, text) in files {
             let url = root.appending(path: name)
             try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             try Data(text.utf8).write(to: url)
         }
         try body(root)
@@ -113,7 +117,8 @@ import Testing
     @Test func `a modeler comment suppresses the finding on its line`() throws {
         let source = Self.reentrant("A").replacingOccurrences(
             of: "            value = 1\n",
-            with: "            value = 1  // @modeler:accept reentrancy -- checked by the caller\n")
+            with: "            value = 1  // @modeler:accept reentrancy -- checked by the caller\n"
+        )
         try Self.workspace(["Sources/A.swift": source]) { root in
             let run = try Self.run(["check", ".", "--no-cache", "--strict"], in: root)
             #expect(run.status == 0)
@@ -151,7 +156,9 @@ import Testing
             #expect(old.output == new.output)
             #expect(
                 old.errors.contains(
-                    "modeler: note: --include-tests is deprecated; use --include-regions test,generated"))
+                    "modeler: note: --include-tests is deprecated; use --include-regions test,generated"
+                )
+            )
         }
     }
 
@@ -160,7 +167,9 @@ import Testing
             #expect(try Self.run(["check", ".", "--no-cache", "--write-baseline", "base.json"], in: root).status == 0)
             try Data(Self.reentrant("B").utf8).write(to: root.appending(path: "Sources/B.swift"))
             let run = try Self.run(
-                ["check", ".", "--no-cache", "--only", "Sources/C.swift", "--report-new-since", "base.json"], in: root)
+                ["check", ".", "--no-cache", "--only", "Sources/C.swift", "--report-new-since", "base.json"],
+                in: root
+            )
             #expect(run.output.contains("B.swift") && !run.output.contains("A.swift"))
             #expect(run.errors.contains("1 finding(s) outside --only are new since base.json"))
         }

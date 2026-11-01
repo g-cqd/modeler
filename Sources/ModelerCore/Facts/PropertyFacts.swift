@@ -13,7 +13,12 @@ public struct PropertyFacts: Codable, Sendable, Hashable {
     public let initialLiteral: String?
 
     public init(
-        name: String, typeText: String?, isMutable: Bool, isStatic: Bool, line: Int, initialCase: String?,
+        name: String,
+        typeText: String?,
+        isMutable: Bool,
+        isStatic: Bool,
+        line: Int,
+        initialCase: String?,
         initialLiteral: String?
     ) {
         self.name = name

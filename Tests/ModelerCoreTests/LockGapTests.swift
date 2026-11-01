@@ -15,7 +15,9 @@ import Testing
                     }
                     func g() { lock.withLock { value = 1 } }
                 }
-                """))
+                """
+            )
+        )
     }
 
     @Test func `a check in one lock scope and a write in another is a gap`() throws {
@@ -50,7 +52,8 @@ import Testing
                     return key
                 }
             }
-            """)
+            """
+        )
         #expect(ReentrancyAnalysis.findings(in: facts).isEmpty)
     }
 
@@ -67,7 +70,8 @@ import Testing
                     return key
                 }
             }
-            """)
+            """
+        )
         #expect(try #require(ReentrancyAnalysis.findings(in: facts).first).kind == .lockGap)
     }
 
@@ -84,10 +88,13 @@ import Testing
                 func racy() { if !ready { ready = true } }
                 func safe() { lock.withLock { if !ready { ready = true } } }
             }
-            """)
+            """
+        )
         let module = try #require(TLAModule.render(type: "Cache", in: facts)).module
         #expect(
-            module.contains("racy_0(p) ==") && module.contains("racy_1(p) =="), "the check and the write interleave")
+            module.contains("racy_0(p) ==") && module.contains("racy_1(p) =="),
+            "the check and the write interleave"
+        )
         #expect(module.contains("safe_0(p) ==") && !module.contains("safe_1(p)"), "the lock scope is atomic")
         #expect(module.contains("NoStaleWrite_1 == ~stale_1"))
     }

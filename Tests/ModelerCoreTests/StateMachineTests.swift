@@ -26,7 +26,8 @@ import Testing
         #expect(
             job.transitions.map { "\($0.method) \($0.from ?? []) -> \($0.to)" } == [
                 "start() [\"idle\"] -> running", "finish() [\"idle\", \"running\"] -> done", "reset() [] -> idle",
-            ])
+            ]
+        )
         #expect(job.transitions[2].from == nil)
         #expect(job.opaqueWrites == 1, "apply(_:) assigns a parameter")
     }
@@ -35,7 +36,8 @@ import Testing
         let light = try #require(StateMachines.extract(from: modelFacts(source)).first { $0.owner == "Light" })
         #expect(light.property == "self")
         #expect(
-            light.transitions.map { "\($0.from ?? []) -> \($0.to)" } == ["[\"red\"] -> green", "[\"green\"] -> red"])
+            light.transitions.map { "\($0.from ?? []) -> \($0.to)" } == ["[\"red\"] -> green", "[\"green\"] -> red"]
+        )
     }
 
     @Test func `a transition guarded before an await is marked stale`() throws {
@@ -46,14 +48,16 @@ import Testing
                 var p: P = .a
                 func go() async { guard p == .a else { return }; await h(); p = .b }
             }
-            """)
+            """
+        )
         let machine = try #require(StateMachines.extract(from: facts).first)
         #expect(machine.transitions.map(\.isStale) == [true])
     }
 
     @Test func `an initializer is not a transition`() {
         let facts = modelFacts(
-            "enum K { case a, b\n init(_ n: Int) { self = n == 0 ? .a : .b }\n init() { self = .a } }")
+            "enum K { case a, b\n init(_ n: Int) { self = n == 0 ? .a : .b }\n init() { self = .a } }"
+        )
         #expect(StateMachines.extract(from: facts).isEmpty)
     }
 

@@ -25,7 +25,8 @@ import Testing
                     }
                 }
                 """
-            ).isEmpty)
+            ).isEmpty
+        )
     }
 
     @Test func `a condition calling a method that does not read the member does not`() {
@@ -44,7 +45,8 @@ import Testing
                     }
                 }
                 """
-            ).map(\.property) == ["phase"])
+            ).map(\.property) == ["phase"]
+        )
     }
 
     @Test func `an awaited call in a condition is the suspension, not a check of what the callee reads`() {
@@ -61,7 +63,8 @@ import Testing
                     }
                 }
                 """
-            ).isEmpty)
+            ).isEmpty
+        )
     }
 
     // MARK: A generation token
@@ -125,12 +128,14 @@ import Testing
     @Test func `a cancellation check when another writer cancels nothing does not`() {
         #expect(
             findings(cancellation(check: "try Task.checkCancellation()", otherWriter: "phase = 2")).map(\.property)
-                == ["phase"])
+                == ["phase"]
+        )
     }
 
     @Test func `cancelling without checking for it after the await does not`() {
         #expect(
-            findings(cancellation(check: "", otherWriter: "task?.cancel()\nphase = 2")).map(\.property) == ["phase"])
+            findings(cancellation(check: "", otherWriter: "task?.cancel()\nphase = 2")).map(\.property) == ["phase"]
+        )
     }
 
     @Test func `a cancel of a member task is an effect of its own`() throws {

@@ -42,7 +42,9 @@ public enum Corpus {
     /// - Throws: `CancellationError`.
     /// - Complexity: O(*n*) in the corpus size over the available cores.
     public static func load(
-        paths: [String], cache: CacheLocation?, configuration: Configuration = .default,
+        paths: [String],
+        cache: CacheLocation?,
+        configuration: Configuration = .default,
         isExcluded: @escaping @Sendable (String) -> Bool = { _ in false }
     ) async throws -> Report {
         let started = ContinuousClock.now
@@ -66,8 +68,10 @@ public enum Corpus {
             conditions.isRequested
             ? "defines=\(conditions.defines.sorted());platforms=\(conditions.platforms.sorted())" : ""
         let scan = try await CorpusScanner.scan(
-            paths: included, cache: cache,
-            identity: CacheIdentity.current(tool: ModelerTool.name, version: ModelerTool.version), salt: salt
+            paths: included,
+            cache: cache,
+            identity: CacheIdentity.current(tool: ModelerTool.name, version: ModelerTool.version),
+            salt: salt
         ) { path, bytes in
             FactsExtractor.extract(bytes: bytes, path: path, classification: classification, conditions: conditions)
         }
@@ -90,10 +94,15 @@ public enum Corpus {
             }
         }
         return Report(
-            facts: ModelFacts(files: kept), fileCount: count, cacheHits: hits, unreadable: unreadable,
-            degraded: degraded, cacheNote: scan.cacheLoadFailure,
+            facts: ModelFacts(files: kept),
+            fileCount: count,
+            cacheHits: hits,
+            unreadable: unreadable,
+            degraded: degraded,
+            cacheNote: scan.cacheLoadFailure,
             classificationIssues: classification.issues(for: included.map(SourcePath.canonical)),
-            timings: ["discover": seconds(discovered - started), "scan": seconds(ContinuousClock.now - discovered)])
+            timings: ["discover": seconds(discovered - started), "scan": seconds(ContinuousClock.now - discovered)]
+        )
     }
 
     private static func seconds(_ duration: Duration) -> Double {

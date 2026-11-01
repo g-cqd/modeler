@@ -44,7 +44,10 @@ import Testing
 
     private func findings(_ source: String, defines: Set<String>) -> [ReentrancyFinding] {
         let facts = FactsExtractor.extract(
-            source: source, path: "A.swift", conditions: CompilationConditions(defines: defines))
+            source: source,
+            path: "A.swift",
+            conditions: CompilationConditions(defines: defines)
+        )
         return ReentrancyAnalysis.findings(in: ModelFacts(files: [facts]))
     }
 
@@ -65,10 +68,16 @@ import Testing
         defer { try? FileManager.default.removeItem(at: root) }
         try declarations.write(to: root.appending(path: "A.swift"), atomically: true, encoding: .utf8)
         let other = try await Corpus.load(
-            paths: [root.path], cache: nil, configuration: Configuration(defines: ["OTHER"]))
+            paths: [root.path],
+            cache: nil,
+            configuration: Configuration(defines: ["OTHER"])
+        )
         #expect(ReentrancyAnalysis.findings(in: other.facts).isEmpty)
         let feature = try await Corpus.load(
-            paths: [root.path], cache: nil, configuration: Configuration(defines: ["FEATURE"]))
+            paths: [root.path],
+            cache: nil,
+            configuration: Configuration(defines: ["FEATURE"])
+        )
         #expect(ReentrancyAnalysis.findings(in: feature.facts).count == 1)
     }
 }

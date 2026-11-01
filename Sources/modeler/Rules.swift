@@ -6,7 +6,8 @@ import SystemPackage
 /// `modeler rules`: the catalogue; with an id, that rule explained (ADR-0019).
 struct Rules: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "The rules `check` applies: id, severity and what each checks; with an id, that rule explained.")
+        abstract: "The rules `check` applies: id, severity and what each checks; with an id, that rule explained."
+    )
 
     @Argument(help: "A rule id: explain that rule, as `modeler explain <id>` does.")
     var rule: String?

@@ -46,8 +46,15 @@ public struct Effect: Codable, Sendable, Hashable {
     public let nodes: [Int]?
 
     public init(
-        kind: Kind, line: Int, subject: String, value: String? = nil, isCheck: Bool = false, closureDepth: Int = 0,
-        when: [StateGuard] = [], locks: [String] = [], nodes: [Int]? = nil
+        kind: Kind,
+        line: Int,
+        subject: String,
+        value: String? = nil,
+        isCheck: Bool = false,
+        closureDepth: Int = 0,
+        when: [StateGuard] = [],
+        locks: [String] = [],
+        nodes: [Int]? = nil
     ) {
         self.kind = kind
         self.line = line
@@ -63,8 +70,15 @@ public struct Effect: Codable, Sendable, Hashable {
     /// The effect without its graph nodes, as `modeler facts` prints it.
     public var withoutFlow: Effect {
         Effect(
-            kind: kind, line: line, subject: subject, value: value, isCheck: isCheck, closureDepth: closureDepth,
-            when: when, locks: locks)
+            kind: kind,
+            line: line,
+            subject: subject,
+            value: value,
+            isCheck: isCheck,
+            closureDepth: closureDepth,
+            when: when,
+            locks: locks
+        )
     }
 }
 

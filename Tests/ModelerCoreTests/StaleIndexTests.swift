@@ -15,7 +15,9 @@ import Testing
                         \(body)
                     }
                 }
-                """))
+                """
+            )
+        )
     }
 
     @Test func `an index from a guard let, an await, then a replaceSubrange is reported once, under its own rule`()
@@ -26,7 +28,8 @@ import Testing
             guard let index = items.firstIndex(where: { $0 == id }) else { return }
             let value = await load(id)
             items.replaceSubrange(index..<(index + 1), with: [value])
-            """)
+            """
+        )
         let only = try #require(found.first)
         #expect(found.count == 1, "the reentrancy finding on the same line is not reported twice")
         #expect(only.kind == .staleIndex && only.property == "items")
@@ -42,7 +45,8 @@ import Testing
                 await load(id)
                 items[index] = 0
                 """
-            ).first)
+            ).first
+        )
         #expect(found.kind == .staleIndex && found.writeLine == 7)
     }
 
@@ -55,7 +59,8 @@ import Testing
                 await load(id)
                 _ = items[next]
                 """
-            ).map(\.kind) == [.staleIndex])
+            ).map(\.kind) == [.staleIndex]
+        )
     }
 
     @Test func `looking the index up again after the await clears it`() {
@@ -67,7 +72,8 @@ import Testing
                 index = items.firstIndex(of: id)!
                 items.remove(at: index)
                 """
-            ).isEmpty)
+            ).isEmpty
+        )
     }
 
     @Test func `an index used on another member, or before the await, is not reported`() {
@@ -79,14 +85,17 @@ import Testing
                 await load(id)
                 others[index] = 0
                 """
-            ).isEmpty)
+            ).isEmpty
+        )
     }
 
     @Test func `a type no other task interleaves with is not examined`() {
         #expect(
             findings(
-                "let index = items.firstIndex(of: id)!\nawait load(id)\nitems[index] = 0", header: "final class A"
-            ).isEmpty)
+                "let index = items.firstIndex(of: id)!\nawait load(id)\nitems[index] = 0",
+                header: "final class A"
+            ).isEmpty
+        )
     }
 
     @Test func `the rule is an error by default, with its explanation`() {
