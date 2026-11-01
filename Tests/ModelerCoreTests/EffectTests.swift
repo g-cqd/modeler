@@ -3,7 +3,8 @@ import Testing
 
 @Suite struct EffectTests {
     private func effects(
-        _ body: String, members: String = "var state: Phase = .idle; var count = 0; var items = [Int]()"
+        _ body: String,
+        members: String = "var state: Phase = .idle; var count = 0; var items = [Int]()"
     ) -> [Effect] {
         let facts = modelFacts(
             """
@@ -14,7 +15,8 @@ import Testing
                     \(body)
                 }
             }
-            """)
+            """
+        )
         return method("f", of: "A", in: facts)?.effects ?? []
     }
 
@@ -35,7 +37,8 @@ import Testing
 
     @Test func `a mutating call reads then writes the member and an inout argument writes it`() {
         #expect(
-            effects("items.append(1); items[0] = 2").map(\.summary) == ["read items", "write items", "write items"])
+            effects("items.append(1); items[0] = 2").map(\.summary) == ["read items", "write items", "write items"]
+        )
         #expect(effects("modify(&count)").map(\.summary) == ["write count"])
     }
 
@@ -67,7 +70,8 @@ import Testing
             case .running(let x): count = 2
             default: count = 3
             }
-            """)
+            """
+        )
         let writes = found.filter { $0.kind == .write }
         #expect(writes.map { $0.when.first?.cases } == [["done", "idle"], ["running"], nil])
     }
@@ -124,7 +128,8 @@ import Testing
 
     @Test func `the TLA+ precondition of a boolean check is written in TLA+ booleans`() throws {
         let facts = modelFacts(
-            "actor A { var ready = false; func f() async { guard !ready else { return }; await g(); ready = true } }")
+            "actor A { var ready = false; func f() async { guard !ready else { return }; await g(); ready = true } }"
+        )
         let module = try #require(TLAModule.render(type: "A", in: facts)).module
         #expect(module.contains("/\\ ready \\in {FALSE}"))
         #expect(module.contains("f_0_skip(p) =="))

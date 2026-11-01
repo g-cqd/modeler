@@ -54,7 +54,8 @@ import Testing
                 func go() async { guard p == .a else { return }; await h(); p = .b }
                 func back() { p = .state }
             }
-            """)
+            """
+        )
         let machine = try #require(StateMachines.extract(from: facts).first)
         let diagram = MermaidStateDiagram.render(machine)
         #expect(diagram.contains("[*] --> a"))

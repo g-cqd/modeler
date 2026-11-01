@@ -55,7 +55,9 @@ final class BodyEffectCollector: SyntaxVisitor {
     /// The effects of `body`, in source order, each with the nodes of the body's control-flow graph it happens in,
     /// and that graph as successor lists (roadmap 0026).
     static func effects(
-        of body: CodeBlockSyntax, converter: SourceLocationConverter, locals: Set<String>
+        of body: CodeBlockSyntax,
+        converter: SourceLocationConverter,
+        locals: Set<String>
     ) -> (effects: [Effect], flow: [[Int]]) {
         let collector = BodyEffectCollector(converter: converter, locals: locals)
         collector.walk(body)
@@ -63,9 +65,16 @@ final class BodyEffectCollector: SyntaxVisitor {
         let placed = place(collector.offsets, in: graph)
         let effects = zip(collector.effects, placed).map { effect, nodes in
             Effect(
-                kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
-                isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: effect.when, locks: effect.locks,
-                nodes: nodes)
+                kind: effect.kind,
+                line: effect.line,
+                subject: effect.subject,
+                value: effect.value,
+                isCheck: effect.isCheck,
+                closureDepth: effect.closureDepth,
+                when: effect.when,
+                locks: effect.locks,
+                nodes: nodes
+            )
         }
         return (effects, graph.nodes.map { $0.successors.map(\.target) })
     }
@@ -106,7 +115,11 @@ final class BodyEffectCollector: SyntaxVisitor {
     static let cancellation = "Task.isCancelled"
 
     private func record(
-        _ kind: Effect.Kind, _ node: some SyntaxProtocol, _ subject: String, value: String? = nil, check: Bool? = nil
+        _ kind: Effect.Kind,
+        _ node: some SyntaxProtocol,
+        _ subject: String,
+        value: String? = nil,
+        check: Bool? = nil
     ) {
         let guards = known.map {
             StateGuard(property: $0.key, cases: $0.value.cases.sorted(), isFresh: $0.value.epoch == epoch)
@@ -114,9 +127,16 @@ final class BodyEffectCollector: SyntaxVisitor {
         offsets.append(node.positionAfterSkippingLeadingTrivia.utf8Offset)
         effects.append(
             Effect(
-                kind: kind, line: line(of: node), subject: subject, value: value,
+                kind: kind,
+                line: line(of: node),
+                subject: subject,
+                value: value,
                 isCheck: check ?? (conditionDepth > 0 && (kind == .read || (kind == .call && awaitDepth == 0))),
-                closureDepth: closureDepth, when: guards.sorted { $0.property < $1.property }, locks: heldLocks))
+                closureDepth: closureDepth,
+                when: guards.sorted { $0.property < $1.property },
+                locks: heldLocks
+            )
+        )
     }
 
     private func suspend(at node: some SyntaxProtocol, awaiting text: String) {

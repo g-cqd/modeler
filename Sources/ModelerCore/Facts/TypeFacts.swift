@@ -25,8 +25,15 @@ public struct TypeFacts: Codable, Sendable, Hashable {
     public let predicates: [String: [String]]?
 
     public init(
-        name: String, kind: Kind, inherited: [String], attributes: [String], file: String, line: Int,
-        properties: [PropertyFacts], cases: [EnumCaseFacts], methods: [MethodFacts],
+        name: String,
+        kind: Kind,
+        inherited: [String],
+        attributes: [String],
+        file: String,
+        line: Int,
+        properties: [PropertyFacts],
+        cases: [EnumCaseFacts],
+        methods: [MethodFacts],
         predicates: [String: [String]]? = nil
     ) {
         self.name = name
@@ -44,8 +51,17 @@ public struct TypeFacts: Codable, Sendable, Hashable {
     /// The type without its methods' control-flow graphs, as `modeler facts` prints it.
     public var withoutFlow: TypeFacts {
         TypeFacts(
-            name: name, kind: kind, inherited: inherited, attributes: attributes, file: file, line: line,
-            properties: properties, cases: cases, methods: methods.map(\.withoutFlow), predicates: predicates)
+            name: name,
+            kind: kind,
+            inherited: inherited,
+            attributes: attributes,
+            file: file,
+            line: line,
+            properties: properties,
+            cases: cases,
+            methods: methods.map(\.withoutFlow),
+            predicates: predicates
+        )
     }
 
     /// The last component of ``name``.

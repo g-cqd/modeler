@@ -4,7 +4,9 @@ import SystemPackage
 
 struct TLA: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "tla", abstract: "A TLA+ model and TLC configuration of one type's state and methods.")
+        commandName: "tla",
+        abstract: "A TLA+ model and TLC configuration of one type's state and methods."
+    )
 
     @OptionGroup var corpus: CorpusOptions
 
@@ -31,7 +33,8 @@ struct TLA: AsyncParsableCommand {
         bounds.opaqueValues = opaque
         guard let model = TLAModule.render(type: type, in: facts, bounds: bounds) else {
             throw ValidationError(
-                "'\(type)' is not a type of this corpus, or none of its methods touch a mutable member.")
+                "'\(type)' is not a type of this corpus, or none of its methods touch a mutable member."
+            )
         }
         if let output {
             try writeFiles(["\(model.name).tla": model.module, "\(model.name).cfg": model.config], to: output)

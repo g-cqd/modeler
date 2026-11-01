@@ -4,7 +4,8 @@ import SystemPackage
 
 struct Facts: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Every extracted fact, state machine and finding as JSON.")
+        abstract: "Every extracted fact, state machine and finding as JSON."
+    )
 
     @OptionGroup var corpus: CorpusOptions
 

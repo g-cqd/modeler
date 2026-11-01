@@ -37,8 +37,12 @@ public struct Configuration: Codable, Sendable, Equatable {
     }
 
     public init(
-        disable: [RuleID] = [], severity: [RuleID: Severity] = [:], exclude: [String] = [],
-        regions: RegionSelection = .none, defines: [String] = [], platforms: [String] = []
+        disable: [RuleID] = [],
+        severity: [RuleID: Severity] = [:],
+        exclude: [String] = [],
+        regions: RegionSelection = .none,
+        defines: [String] = [],
+        platforms: [String] = []
     ) {
         self.disable = disable
         self.severity = severity
@@ -61,7 +65,10 @@ public struct Configuration: Codable, Sendable, Equatable {
         for (name, level) in named {
             guard let rule = RuleID(rawValue: name) else {
                 throw DecodingError.dataCorruptedError(
-                    forKey: .severity, in: values, debugDescription: "no rule named \(name)")
+                    forKey: .severity,
+                    in: values,
+                    debugDescription: "no rule named \(name)"
+                )
             }
             parsed[rule] = level
         }
@@ -73,10 +80,14 @@ public struct Configuration: Codable, Sendable, Equatable {
         do {
             regions = try RegionSelection(
                 include: try regionValues.decodeIfPresent(String.self, forKey: .includeRegions),
-                exclude: try regionValues.decodeIfPresent(String.self, forKey: .excludeRegions))
+                exclude: try regionValues.decodeIfPresent(String.self, forKey: .excludeRegions)
+            )
         } catch let error as UnknownRegionName {
             throw DecodingError.dataCorruptedError(
-                forKey: .includeRegions, in: regionValues, debugDescription: error.description)
+                forKey: .includeRegions,
+                in: regionValues,
+                debugDescription: error.description
+            )
         }
     }
 
@@ -84,7 +95,9 @@ public struct Configuration: Codable, Sendable, Equatable {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(disable, forKey: .disable)
         try values.encode(
-            Dictionary(uniqueKeysWithValues: severity.map { ($0.key.rawValue, $0.value) }), forKey: .severity)
+            Dictionary(uniqueKeysWithValues: severity.map { ($0.key.rawValue, $0.value) }),
+            forKey: .severity
+        )
         try values.encode(exclude, forKey: .exclude)
         if !defines.isEmpty { try values.encode(defines.sorted(), forKey: .defines) }
         if !platforms.isEmpty { try values.encode(platforms.sorted(), forKey: .platforms) }
@@ -114,18 +127,26 @@ public struct Configuration: Codable, Sendable, Equatable {
 
     /// What the shared configuration reader checks modeler's keys against (ADR-0020); the shared keys are its own.
     public static let sharedReading = SharedConfiguration.Tool(
-        name: ModelerTool.name, fileName: ".modeler.json", keys: ["disable", "severity"])
+        name: ModelerTool.name,
+        fileName: ".modeler.json",
+        keys: ["disable", "severity"]
+    )
 
     /// The configuration of a run: `explicit` (`--config`) or the configuration directory's `.swift-analyzers.json` and
     /// `.modeler.json`, merged, every key checked; the default when there is none.
     /// - Throws: a ``Failure``, so a typo never silently turns a rule off.
     public static func resolve(
-        explicit: String?, currentDirectory: String, analyzedPaths: [String]
+        explicit: String?,
+        currentDirectory: String,
+        analyzedPaths: [String]
     ) throws(Failure) -> (configuration: Configuration, sources: SharedConfiguration.Resolved) {
         let resolved: SharedConfiguration.Resolved
         do {
             resolved = try SharedConfiguration.resolve(
-                for: sharedReading, explicit: explicit, currentDirectory: currentDirectory, analyzedPaths: analyzedPaths
+                for: sharedReading,
+                explicit: explicit,
+                currentDirectory: currentDirectory,
+                analyzedPaths: analyzedPaths
             )
         } catch .unreadable(let path, let reason) {
             throw .unreadable(path: path, reason: reason)

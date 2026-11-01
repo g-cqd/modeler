@@ -41,8 +41,10 @@ struct CorpusOptions: ParsableArguments {
         let resolved: (configuration: Configuration, sources: SharedConfiguration.Resolved)
         do {
             resolved = try Configuration.resolve(
-                explicit: input.config, currentDirectory: FileManager.default.currentDirectoryPath,
-                analyzedPaths: input.paths)
+                explicit: input.config,
+                currentDirectory: FileManager.default.currentDirectoryPath,
+                analyzedPaths: input.paths
+            )
         } catch {
             write("\(ModelerTool.name): \(error)\n", to: .standardError)
             throw ExitCode(ExitStatus.badConfiguration.rawValue)
@@ -56,7 +58,8 @@ struct CorpusOptions: ParsableArguments {
                 let given = try RegionSelection(include: input.includeRegions, exclude: input.excludeRegions)
                 configuration.regions = RegionSelection(
                     include: input.includeRegions == nil ? configuration.regions.include : given.include,
-                    exclude: input.excludeRegions == nil ? configuration.regions.exclude : given.exclude)
+                    exclude: input.excludeRegions == nil ? configuration.regions.exclude : given.exclude
+                )
             } catch {
                 write("\(ModelerTool.name): \(error)\n", to: .standardError)
                 throw ExitCode(ExitStatus.usage.rawValue)
@@ -77,8 +80,11 @@ struct CorpusOptions: ParsableArguments {
         }
         let commandLine = PathFilter(input.excludePaths, root: FileManager.default.currentDirectoryPath)
         let report = try await Corpus.load(
-            paths: input.paths, cache: cache.noCache ? nil : cacheLocation(), configuration: configuration,
-            isExcluded: { commandLine.excludes($0) })
+            paths: input.paths,
+            cache: cache.noCache ? nil : cacheLocation(),
+            configuration: configuration,
+            isExcluded: { commandLine.excludes($0) }
+        )
         for (path, reason) in report.unreadable.sorted(by: { $0.key < $1.key }) {
             write("\(ModelerTool.name): could not read \(path): \(reason)\n", to: .standardError)
         }
@@ -92,16 +98,22 @@ struct CorpusOptions: ParsableArguments {
         }
         note(
             "\(ModelerTool.name): \(report.facts.types.count) type(s) in \(report.fileCount) file(s); cache: "
-                + "\(report.cacheHits) reused, \(report.fileCount - report.cacheHits) parsed")
+                + "\(report.cacheHits) reused, \(report.fileCount - report.cacheHits) parsed"
+        )
         guard report.fileCount > 0 else {
             write(
                 "\(ModelerTool.name): no Swift files under \(input.paths.joined(separator: ", "))\n",
-                to: .standardError)
+                to: .standardError
+            )
             throw ExitCode(ExitStatus.usage.rawValue)
         }
         let skipped = report.unreadable.count + report.degraded.count
         if RunOutcome.status(
-            severities: [], strict: false, analyzedFileCount: report.fileCount - skipped, skippedFileCount: skipped)
+            severities: [],
+            strict: false,
+            analyzedFileCount: report.fileCount - skipped,
+            skippedFileCount: skipped
+        )
             == .internalFailure
         {
             write("\(ModelerTool.name): no file could be read or modelled\n", to: .standardError)
@@ -121,7 +133,10 @@ struct CorpusOptions: ParsableArguments {
         let root =
             cache.cachePath.map(SourcePath.absolute)
             ?? CacheLocation.defaultRoot(
-                tool: ModelerTool.name, environment: environment, home: environment["HOME"] ?? "/tmp")
+                tool: ModelerTool.name,
+                environment: environment,
+                home: environment["HOME"] ?? "/tmp"
+            )
         let workspace =
             ProjectLayout.discover(paths: input.paths)?.root ?? SourcePath.absolute(input.paths.first ?? ".")
         return CacheLocation(root: root, workspace: workspace)

@@ -85,8 +85,12 @@ public enum TLAModule {
                         comment:
                             "\(method.signature), segment \(index + 1) of \(segments.count), \(type.file):\(method.line)",
                         method: method.signature,
-                        from: index == 0 ? "idle" : "\(base)_\(index)", to: target, segment: segment,
-                        isFirst: index == 0))
+                        from: index == 0 ? "idle" : "\(base)_\(index)",
+                        to: target,
+                        segment: segment,
+                        isFirst: index == 0
+                    )
+                )
             }
             methodIDs[base] = built
             actions += built
@@ -94,16 +98,28 @@ public enum TLAModule {
         return TLAModel(
             name: identifier(type.name, taken: []) + "Model",
             module: moduleText(
-                type: type, variables: variables, byName: byName, actions: actions, labels: labels,
-                findings: findings, bounds: bounds),
-            config: configText(variables: variables, findings: findings, bounds: bounds))
+                type: type,
+                variables: variables,
+                byName: byName,
+                actions: actions,
+                labels: labels,
+                findings: findings,
+                bounds: bounds
+            ),
+            config: configText(variables: variables, findings: findings, bounds: bounds)
+        )
     }
 
     // MARK: - Text
 
     private static func moduleText(
-        type: TypeFacts, variables: [Variable], byName: [String: Variable], actions: [Action], labels: [String],
-        findings: [ReentrancyFinding], bounds: Bounds
+        type: TypeFacts,
+        variables: [Variable],
+        byName: [String: Variable],
+        actions: [Action],
+        labels: [String],
+        findings: [ReentrancyFinding],
+        bounds: Bounds
     ) -> String {
         let monitors = findings.enumerated().map { (offset, finding) in Monitor(index: offset + 1, finding: finding) }
         let name = identifier(type.name, taken: []) + "Model"
@@ -178,7 +194,11 @@ public enum TLAModule {
     }
 
     private static func actionLines(
-        _ action: Action, variables: [Variable], byName: [String: Variable], monitors: [Monitor], bounds: Bounds
+        _ action: Action,
+        variables: [Variable],
+        byName: [String: Variable],
+        monitors: [Monitor],
+        bounds: Bounds
     ) -> [String] {
         let precondition = renderedPreconditions(action.segment.precondition, byName: byName, bounds: bounds)
         var body: [String] = ["/\\ pc[p] = \"\(action.from)\""]
@@ -254,7 +274,9 @@ public enum TLAModule {
             lines.append(
                 "    /\\ UNCHANGED <<"
                     + (variables.map(\.name) + monitors.flatMap { ["chk_\($0.index)", "stale_\($0.index)"] }).joined(
-                        separator: ", ") + ">>")
+                        separator: ", "
+                    ) + ">>"
+            )
         }
         lines.append("")
         return lines
@@ -263,7 +285,9 @@ public enum TLAModule {
     /// The TLA+ terms each checked member may hold. A member whose checked values are not in its set is not
     /// constrained, since the check cannot be written.
     private static func renderedPreconditions(
-        _ precondition: [String: [String]], byName: [String: Variable], bounds: Bounds
+        _ precondition: [String: [String]],
+        byName: [String: Variable],
+        bounds: Bounds
     ) -> [String: [String]] {
         var rendered: [String: [String]] = [:]
         for (property, cases) in precondition {
@@ -279,7 +303,8 @@ public enum TLAModule {
         lines.append("    Procs = {" + (1...max(bounds.callers, 1)).map { "p\($0)" }.joined(separator: ", ") + "}")
         if variables.contains(where: { $0.domain.usesOpaque }) {
             lines.append(
-                "    Opaque = {" + (1...max(bounds.opaqueValues, 1)).map { "o\($0)" }.joined(separator: ", ") + "}")
+                "    Opaque = {" + (1...max(bounds.opaqueValues, 1)).map { "o\($0)" }.joined(separator: ", ") + "}"
+            )
         }
         if variables.contains(where: { $0.domain.usesIntegerBound }) {
             lines.append("    IntMax = \(bounds.integerMaximum)")

@@ -65,7 +65,9 @@ import Testing
         let safe = try #require(module.range(of: "startSafely_1(p) =="))
         #expect(
             module[safe.lowerBound...].split(separator: "\n").prefix(4).joined(separator: "\n").contains(
-                "phase \\in {\"idle\"}"))
+                "phase \\in {\"idle\"}"
+            )
+        )
     }
 
     @Test func `only the finding gets a monitor and the configuration names its invariant`() throws {
@@ -100,7 +102,9 @@ import Testing
         #expect(hazardous.contains("Invariant NoStaleWrite_1 is violated"))
 
         let safeOnly = Self.hazard.replacingOccurrences(
-            of: "try await warmUp()\n        phase = .running\n        started += 1", with: "phase = .running")
+            of: "try await warmUp()\n        phase = .running\n        started += 1",
+            with: "phase = .running"
+        )
         let safe = try tlc(model(safeOnly), jar: jar)
         #expect(safe.contains("Model checking completed. No error has been found."))
     }

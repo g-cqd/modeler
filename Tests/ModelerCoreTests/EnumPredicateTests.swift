@@ -35,9 +35,12 @@ import Testing
                     state = .idle
                 }
             }
-            """, Self.state)
+            """,
+            Self.state
+        )
         let write = try #require(
-            facts.type(named: "Recorder")?.methods.first?.effects.first { $0.kind == .write && $0.subject == "state" })
+            facts.type(named: "Recorder")?.methods.first?.effects.first { $0.kind == .write && $0.subject == "state" }
+        )
         return write.when
     }
 
@@ -63,7 +66,8 @@ import Testing
             facts.type(named: "State")?.predicates == [
                 "isActive": ["paused", "recording"], "isIdle": ["idle"], "isPaused": ["paused"],
                 "isRecording": ["recording"],
-            ])
+            ]
+        )
     }
 
     @Test func `the TLA+ model takes the precondition from the predicate`() throws {
@@ -78,7 +82,9 @@ import Testing
                 }
                 func stop() async {}
             }
-            """, Self.state)
+            """,
+            Self.state
+        )
         let module = try #require(TLAModule.render(type: "Recorder", in: facts)).module
         #expect(module.contains("/\\ state \\in {\"paused\", \"recording\"}"))
     }
@@ -100,7 +106,9 @@ import Testing
                 }
                 func start() async {}
             }
-            """, Self.state)
+            """,
+            Self.state
+        )
         let module = try #require(TLAModule.render(type: "Recorder", in: facts)).module
         #expect(module.contains("/\\ state \\in {\"paused\", \"recording\"}"))
     }

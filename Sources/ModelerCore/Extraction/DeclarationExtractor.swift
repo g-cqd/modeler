@@ -37,7 +37,10 @@ final class DeclarationExtractor: SyntaxVisitor {
     // MARK: - Types
 
     private func open(
-        _ kind: TypeFacts.Kind, name: String, node: some SyntaxProtocol, inherited: InheritanceClauseSyntax?,
+        _ kind: TypeFacts.Kind,
+        name: String,
+        node: some SyntaxProtocol,
+        inherited: InheritanceClauseSyntax?,
         attributes: AttributeListSyntax
     ) {
         let qualified: String
@@ -50,25 +53,41 @@ final class DeclarationExtractor: SyntaxVisitor {
         }
         scopes.append(
             Scope(
-                name: qualified, kind: kind,
+                name: qualified,
+                kind: kind,
                 inherited: inherited?.inheritedTypes.map { $0.type.trimmedDescription } ?? [],
                 attributes: Self.attributeNames(attributes),
-                line: converter.location(for: node.positionAfterSkippingLeadingTrivia).line))
+                line: converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+            )
+        )
     }
 
     private func close() {
         guard let scope = scopes.popLast() else { return }
         finished.append(
             TypeFacts(
-                name: scope.name, kind: scope.kind, inherited: scope.inherited, attributes: scope.attributes,
-                file: path, line: scope.line, properties: scope.properties, cases: scope.cases, methods: scope.methods,
-                predicates: scope.predicates.isEmpty ? nil : scope.predicates))
+                name: scope.name,
+                kind: scope.kind,
+                inherited: scope.inherited,
+                attributes: scope.attributes,
+                file: path,
+                line: scope.line,
+                properties: scope.properties,
+                cases: scope.cases,
+                methods: scope.methods,
+                predicates: scope.predicates.isEmpty ? nil : scope.predicates
+            )
+        )
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .structType, name: node.name.text, node: node, inherited: node.inheritanceClause,
-            attributes: node.attributes)
+            .structType,
+            name: node.name.text,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
+        )
         return .visitChildren
     }
 
@@ -76,7 +95,11 @@ final class DeclarationExtractor: SyntaxVisitor {
 
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .classType, name: node.name.text, node: node, inherited: node.inheritanceClause, attributes: node.attributes
+            .classType,
+            name: node.name.text,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
         )
         return .visitChildren
     }
@@ -85,7 +108,11 @@ final class DeclarationExtractor: SyntaxVisitor {
 
     override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .actorType, name: node.name.text, node: node, inherited: node.inheritanceClause, attributes: node.attributes
+            .actorType,
+            name: node.name.text,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
         )
         return .visitChildren
     }
@@ -94,7 +121,12 @@ final class DeclarationExtractor: SyntaxVisitor {
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .enumType, name: node.name.text, node: node, inherited: node.inheritanceClause, attributes: node.attributes)
+            .enumType,
+            name: node.name.text,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
+        )
         return .visitChildren
     }
 
@@ -102,8 +134,12 @@ final class DeclarationExtractor: SyntaxVisitor {
 
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .protocolType, name: node.name.text, node: node, inherited: node.inheritanceClause,
-            attributes: node.attributes)
+            .protocolType,
+            name: node.name.text,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
+        )
         return .visitChildren
     }
 
@@ -111,8 +147,12 @@ final class DeclarationExtractor: SyntaxVisitor {
 
     override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
         open(
-            .extensionType, name: node.extendedType.trimmedDescription, node: node, inherited: node.inheritanceClause,
-            attributes: node.attributes)
+            .extensionType,
+            name: node.extendedType.trimmedDescription,
+            node: node,
+            inherited: node.inheritanceClause,
+            attributes: node.attributes
+        )
         return .visitChildren
     }
 
@@ -139,12 +179,15 @@ final class DeclarationExtractor: SyntaxVisitor {
             let initializer = binding.initializer?.value
             scopes[scopes.count - 1].properties.append(
                 PropertyFacts(
-                    name: name, typeText: binding.typeAnnotation?.type.trimmedDescription,
+                    name: name,
+                    typeText: binding.typeAnnotation?.type.trimmedDescription,
                     isMutable: node.bindingSpecifier.tokenKind == .keyword(.var),
                     isStatic: modifiers.contains("static") || modifiers.contains("class"),
                     line: converter.location(for: binding.positionAfterSkippingLeadingTrivia).line,
                     initialCase: initializer.flatMap(Conditions.caseLiteral),
-                    initialLiteral: initializer.flatMap(Self.literalText)))
+                    initialLiteral: initializer.flatMap(Self.literalText)
+                )
+            )
         }
 
         if [.enumType, .extensionType].contains(scopes[scopes.count - 1].kind) {
@@ -169,12 +212,20 @@ final class DeclarationExtractor: SyntaxVisitor {
                 let (effects, flow) = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
                 scopes[scopes.count - 1].methods.append(
                     MethodFacts(
-                        signature: "\(name).set", name: "\(name)_set", file: path,
+                        signature: "\(name).set",
+                        name: "\(name)_set",
+                        file: path,
                         line: converter.location(for: accessor.positionAfterSkippingLeadingTrivia).line,
-                        isAsync: false, isThrowing: false,
+                        isAsync: false,
+                        isThrowing: false,
                         isStatic: modifiers.contains("static") || modifiers.contains("class"),
-                        isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
-                        attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
+                        isMutating: true,
+                        isNonisolated: modifiers.contains("nonisolated"),
+                        attributes: Self.attributeNames(node.attributes),
+                        effects: effects,
+                        flow: flow
+                    )
+                )
             }
         }
         return .skipChildren
@@ -192,12 +243,20 @@ final class DeclarationExtractor: SyntaxVisitor {
                 let (effects, flow) = BodyEffectCollector.effects(of: body, converter: converter, locals: localNames)
                 scopes[scopes.count - 1].methods.append(
                     MethodFacts(
-                        signature: "subscript.set", name: "subscript_set", file: path,
+                        signature: "subscript.set",
+                        name: "subscript_set",
+                        file: path,
                         line: converter.location(for: accessor.positionAfterSkippingLeadingTrivia).line,
-                        isAsync: false, isThrowing: false,
+                        isAsync: false,
+                        isThrowing: false,
                         isStatic: modifiers.contains("static") || modifiers.contains("class"),
-                        isMutating: true, isNonisolated: modifiers.contains("nonisolated"),
-                        attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
+                        isMutating: true,
+                        isNonisolated: modifiers.contains("nonisolated"),
+                        attributes: Self.attributeNames(node.attributes),
+                        effects: effects,
+                        flow: flow
+                    )
+                )
             }
         }
         return .skipChildren
@@ -210,18 +269,27 @@ final class DeclarationExtractor: SyntaxVisitor {
         let (effects, flow) =
             node.body.map {
                 BodyEffectCollector.effects(
-                    of: $0, converter: converter,
-                    locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0))
+                    of: $0,
+                    converter: converter,
+                    locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0)
+                )
             } ?? ([], nil)
         scopes[scopes.count - 1].methods.append(
             MethodFacts(
-                signature: "\(node.name.text)(\(labels))", name: node.name.text, file: path,
+                signature: "\(node.name.text)(\(labels))",
+                name: node.name.text,
+                file: path,
                 line: converter.location(for: node.positionAfterSkippingLeadingTrivia).line,
                 isAsync: node.signature.effectSpecifiers?.asyncSpecifier != nil,
                 isThrowing: node.signature.effectSpecifiers?.throwsClause != nil,
                 isStatic: modifiers.contains("static") || modifiers.contains("class"),
-                isMutating: modifiers.contains("mutating"), isNonisolated: modifiers.contains("nonisolated"),
-                attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
+                isMutating: modifiers.contains("mutating"),
+                isNonisolated: modifiers.contains("nonisolated"),
+                attributes: Self.attributeNames(node.attributes),
+                effects: effects,
+                flow: flow
+            )
+        )
         return .skipChildren
     }
 
@@ -231,16 +299,27 @@ final class DeclarationExtractor: SyntaxVisitor {
         let (effects, flow) =
             node.body.map {
                 BodyEffectCollector.effects(
-                    of: $0, converter: converter,
-                    locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0))
+                    of: $0,
+                    converter: converter,
+                    locals: LocalBindings.collect(parameters: node.signature.parameterClause, body: $0)
+                )
             } ?? ([], nil)
         scopes[scopes.count - 1].methods.append(
             MethodFacts(
-                signature: "init(\(labels))", name: "init", file: path,
+                signature: "init(\(labels))",
+                name: "init",
+                file: path,
                 line: converter.location(for: node.positionAfterSkippingLeadingTrivia).line,
                 isAsync: node.signature.effectSpecifiers?.asyncSpecifier != nil,
-                isThrowing: node.signature.effectSpecifiers?.throwsClause != nil, isStatic: false, isMutating: false,
-                isNonisolated: false, attributes: Self.attributeNames(node.attributes), effects: effects, flow: flow))
+                isThrowing: node.signature.effectSpecifiers?.throwsClause != nil,
+                isStatic: false,
+                isMutating: false,
+                isNonisolated: false,
+                attributes: Self.attributeNames(node.attributes),
+                effects: effects,
+                flow: flow
+            )
+        )
         return .skipChildren
     }
 

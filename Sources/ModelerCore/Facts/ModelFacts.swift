@@ -76,22 +76,46 @@ public struct ModelFacts: Sendable {
         }
         let methods = type.methods.map { method in
             MethodFacts(
-                signature: method.signature, name: method.name, file: method.file, line: method.line,
-                isAsync: method.isAsync, isThrowing: method.isThrowing, isStatic: method.isStatic,
-                isMutating: method.isMutating, isNonisolated: method.isNonisolated, attributes: method.attributes,
+                signature: method.signature,
+                name: method.name,
+                file: method.file,
+                line: method.line,
+                isAsync: method.isAsync,
+                isThrowing: method.isThrowing,
+                isStatic: method.isStatic,
+                isMutating: method.isMutating,
+                isNonisolated: method.isNonisolated,
+                attributes: method.attributes,
                 effects: method.effects.map { effect in
                     let guards = effect.when.compactMap(resolve)
                     guard guards != effect.when else { return effect }
                     return Effect(
-                        kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
-                        isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks,
-                        nodes: effect.nodes)
-                }, flow: method.flow)
+                        kind: effect.kind,
+                        line: effect.line,
+                        subject: effect.subject,
+                        value: effect.value,
+                        isCheck: effect.isCheck,
+                        closureDepth: effect.closureDepth,
+                        when: guards,
+                        locks: effect.locks,
+                        nodes: effect.nodes
+                    )
+                },
+                flow: method.flow
+            )
         }
         return TypeFacts(
-            name: type.name, kind: type.kind, inherited: type.inherited, attributes: type.attributes, file: type.file,
-            line: type.line, properties: type.properties, cases: type.cases, methods: methods,
-            predicates: type.predicates)
+            name: type.name,
+            kind: type.kind,
+            inherited: type.inherited,
+            attributes: type.attributes,
+            file: type.file,
+            line: type.line,
+            properties: type.properties,
+            cases: type.cases,
+            methods: methods,
+            predicates: type.predicates
+        )
     }
 
     private static func merge(_ declarations: [TypeFacts]) -> TypeFacts {
@@ -100,21 +124,34 @@ public struct ModelFacts: Sendable {
         let functions = Set(declarations.flatMap { $0.methods.map(\.name) })
         let methods = declarations.flatMap(\.methods).map { method in
             MethodFacts(
-                signature: method.signature, name: method.name, file: method.file, line: method.line,
+                signature: method.signature,
+                name: method.name,
+                file: method.file,
+                line: method.line,
                 isAsync: method.isAsync,
-                isThrowing: method.isThrowing, isStatic: method.isStatic, isMutating: method.isMutating,
-                isNonisolated: method.isNonisolated, attributes: method.attributes,
+                isThrowing: method.isThrowing,
+                isStatic: method.isStatic,
+                isMutating: method.isMutating,
+                isNonisolated: method.isNonisolated,
+                attributes: method.attributes,
                 effects: method.effects.compactMap {
                     resolve($0, members: members, functions: functions, isEnum: primary.kind == .enumType)
-                }, flow: method.flow)
+                },
+                flow: method.flow
+            )
         }
         return TypeFacts(
-            name: primary.name, kind: primary.kind,
+            name: primary.name,
+            kind: primary.kind,
             inherited: unique(declarations.flatMap(\.inherited)),
             attributes: unique(declarations.flatMap(\.attributes)),
-            file: primary.file, line: primary.line,
-            properties: declarations.flatMap(\.properties), cases: declarations.flatMap(\.cases), methods: methods,
-            predicates: Self.predicates(of: declarations))
+            file: primary.file,
+            line: primary.line,
+            properties: declarations.flatMap(\.properties),
+            cases: declarations.flatMap(\.cases),
+            methods: methods,
+            predicates: Self.predicates(of: declarations)
+        )
     }
 
     private static func resolve(_ effect: Effect, members: Set<String>, functions: Set<String>, isEnum: Bool) -> Effect?
@@ -137,9 +174,16 @@ public struct ModelFacts: Sendable {
         let guards = effect.when.filter { known($0.property) }
         guard guards.count != effect.when.count else { return effect }
         return Effect(
-            kind: effect.kind, line: effect.line, subject: effect.subject, value: effect.value,
-            isCheck: effect.isCheck, closureDepth: effect.closureDepth, when: guards, locks: effect.locks,
-            nodes: effect.nodes)
+            kind: effect.kind,
+            line: effect.line,
+            subject: effect.subject,
+            value: effect.value,
+            isCheck: effect.isCheck,
+            closureDepth: effect.closureDepth,
+            when: guards,
+            locks: effect.locks,
+            nodes: effect.nodes
+        )
     }
 
     private static func predicates(of declarations: [TypeFacts]) -> [String: [String]]? {

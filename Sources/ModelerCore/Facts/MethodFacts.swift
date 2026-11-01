@@ -19,9 +19,18 @@ public struct MethodFacts: Codable, Sendable, Hashable {
     public let flow: [[Int]]?
 
     public init(
-        signature: String, name: String, file: String, line: Int, isAsync: Bool, isThrowing: Bool, isStatic: Bool,
+        signature: String,
+        name: String,
+        file: String,
+        line: Int,
+        isAsync: Bool,
+        isThrowing: Bool,
+        isStatic: Bool,
         isMutating: Bool,
-        isNonisolated: Bool, attributes: [String], effects: [Effect], flow: [[Int]]? = nil
+        isNonisolated: Bool,
+        attributes: [String],
+        effects: [Effect],
+        flow: [[Int]]? = nil
     ) {
         self.signature = signature
         self.name = name
@@ -40,8 +49,17 @@ public struct MethodFacts: Codable, Sendable, Hashable {
     /// The method without its control-flow graph, as `modeler facts` prints it.
     public var withoutFlow: MethodFacts {
         MethodFacts(
-            signature: signature, name: name, file: file, line: line, isAsync: isAsync, isThrowing: isThrowing,
-            isStatic: isStatic, isMutating: isMutating, isNonisolated: isNonisolated, attributes: attributes,
-            effects: effects.map(\.withoutFlow))
+            signature: signature,
+            name: name,
+            file: file,
+            line: line,
+            isAsync: isAsync,
+            isThrowing: isThrowing,
+            isStatic: isStatic,
+            isMutating: isMutating,
+            isNonisolated: isNonisolated,
+            attributes: attributes,
+            effects: effects.map(\.withoutFlow)
+        )
     }
 }

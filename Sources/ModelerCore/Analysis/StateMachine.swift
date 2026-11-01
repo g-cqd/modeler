@@ -34,8 +34,13 @@ public struct StateMachine: Codable, Sendable, Hashable {
     public let opaqueWrites: Int
 
     public init(
-        owner: String, property: String, stateType: String, cases: [String], initial: String?,
-        transitions: [Transition], opaqueWrites: Int
+        owner: String,
+        property: String,
+        stateType: String,
+        cases: [String],
+        initial: String?,
+        transitions: [Transition],
+        opaqueWrites: Int
     ) {
         self.owner = owner
         self.property = property
@@ -60,8 +65,12 @@ public enum StateMachines {
                     stateType.kind == .enumType
                 else { continue }
                 if let machine = machine(
-                    of: type, property: property.name, initial: property.initialCase, stateType: stateType, in: facts)
-                {
+                    of: type,
+                    property: property.name,
+                    initial: property.initialCase,
+                    stateType: stateType,
+                    in: facts
+                ) {
                     machines.append(machine)
                 }
             }
@@ -75,7 +84,11 @@ public enum StateMachines {
     }
 
     private static func machine(
-        of owner: TypeFacts, property: String, initial: String?, stateType: TypeFacts, in facts: ModelFacts
+        of owner: TypeFacts,
+        property: String,
+        initial: String?,
+        stateType: TypeFacts,
+        in facts: ModelFacts
     ) -> StateMachine? {
         var transitions: [StateMachine.Transition] = []
         var seen: Set<StateMachine.Transition> = []
@@ -101,14 +114,24 @@ public enum StateMachines {
                 }
                 let guardOnProperty = effect.when.first { $0.property == property }
                 let transition = StateMachine.Transition(
-                    from: guardOnProperty?.cases, to: target, method: method.signature, line: effect.line,
-                    isStale: guardOnProperty.map { !$0.isFresh } ?? false)
+                    from: guardOnProperty?.cases,
+                    to: target,
+                    method: method.signature,
+                    line: effect.line,
+                    isStale: guardOnProperty.map { !$0.isFresh } ?? false
+                )
                 if seen.insert(transition).inserted { transitions.append(transition) }
             }
         }
         guard !transitions.isEmpty || opaque > 0 else { return nil }
         return StateMachine(
-            owner: owner.name, property: property, stateType: stateType.name, cases: stateType.cases.map(\.name),
-            initial: initial, transitions: transitions, opaqueWrites: opaque)
+            owner: owner.name,
+            property: property,
+            stateType: stateType.name,
+            cases: stateType.cases.map(\.name),
+            initial: initial,
+            transitions: transitions,
+            opaqueWrites: opaque
+        )
     }
 }
