@@ -28,12 +28,12 @@ let package = Package(
         // The JSON coder for the facts report, and for the facts cache through analyzerkit.
         .package(
             url: "https://github.com/g-cqd/AemiJSON.git",
-            revision: "e59abdf87fa25f8c508a375911be1c9a5006bc4a"
+            revision: "1cc3781edaff0847a57ab585d65faab0c5b33b09"
         ),
         // The project model the analyzers share: test code and generated files are not modeled.
         .package(
             url: "https://github.com/g-cqd/analyzerkit.git",
-            revision: "df4783977492d86bf68f574b4f52f2fd672ae93a"
+            revision: "b15fdbe9435bd5af0d1821e1396fce1fed0750a8"
         ),
     ],
     targets: [
