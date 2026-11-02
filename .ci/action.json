@@ -1,0 +1,32 @@
+{
+  "swift": {
+    "parallel": false
+  },
+  "quality": {
+    "paths": [
+      "Sources"
+    ],
+    "include": [
+      "Package.swift",
+      "Sources/**",
+      "Tests/ModelerCoreTests/*.swift"
+    ]
+  },
+  "release": {
+    "executables": [
+      "modeler"
+    ]
+  },
+  "commands": [
+    {
+      "id": "no-gcd",
+      "run": "Scripts/no-gcd.sh",
+      "after": "quality"
+    },
+    {
+      "id": "self-analysis",
+      "run": "swift run modeler check Sources",
+      "after": "linux-debug"
+    }
+  ]
+}
