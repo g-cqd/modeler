@@ -1,5 +1,5 @@
 public enum ModelerTool {
     public static let name = "modeler"
-    public static let version = "0.4.8"
+    public static let version = "0.4.9"
     public static let informationURI = "https://github.com/g-cqd/modeler"
 }
