@@ -55,3 +55,9 @@ modeler is one of a family of analyzers with the same options and reports:
 and [fcheck](https://github.com/g-cqd/fcheck).
 
 [MIT](LICENSE)
+
+## Contributing & Security
+
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [License](LICENSE)

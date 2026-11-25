@@ -1,9 +1,6 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-// Strict-by-default, as in the analyzers that share analyzerkit: warnings are
-// errors, upcoming features are on, and strict memory safety keeps the unsafe
-// surface at zero. Swift 6 language mode includes complete strict concurrency.
 let strictSwiftSettings: [SwiftSetting] = [
     .treatAllWarnings(as: .error),
     .enableUpcomingFeature("ExistentialAny"),
@@ -25,12 +22,10 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "604.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.8.1"),
-        // The JSON coder for the facts report, and for the facts cache through analyzerkit.
         .package(
             url: "https://github.com/g-cqd/AemiJSON.git",
             revision: "1c098f0456a2f86dee32dfd9b85455980216589f"
         ),
-        // The project model the analyzers share: test code and generated files are not modeled.
         .package(
             url: "https://github.com/g-cqd/analyzerkit.git",
             revision: "3b5d779d61e51a346fcb86c69ac3ab8ebcbdd6c0"
